@@ -2,6 +2,8 @@
 
 == A Distributed RESTful Search Engine
 
+== This project is parsed based on Elasticsearch 7.5.2
+
 === https://www.elastic.co/products/elasticsearch[https://www.elastic.co/products/elasticsearch]
 
 Elasticsearch is a distributed RESTful search engine built for the cloud. Features include:
