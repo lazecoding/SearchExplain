@@ -61,8 +61,13 @@ public abstract class Command implements Closeable {
 
     private Thread shutdownHookThread;
 
-    /** Parses options for this command from args and executes it. */
+    /**
+     * Parses options for this command from args and executes it.
+     * <br>
+     * 从 args 中解析该命令的选项并执行它
+     */
     public final int main(String[] args, Terminal terminal) throws Exception {
+        // 是否添加钩子：在 JVM 关闭前清理资源
         if (addShutdownHook()) {
 
             shutdownHookThread = new Thread(() -> {
@@ -81,12 +86,15 @@ public abstract class Command implements Closeable {
                     }
                 }
             });
+            // 添加钩子：在 JVM 关闭前清理资源
             Runtime.getRuntime().addShutdownHook(shutdownHookThread);
         }
 
         beforeMain.run();
 
         try {
+            // Executes the command, but all errors are thrown.
+            // 执行命令，但抛出所有错误。
             mainWithoutErrorHandling(args, terminal);
         } catch (OptionException e) {
             // print help to stderr on exceptions
@@ -105,8 +113,11 @@ public abstract class Command implements Closeable {
 
     /**
      * Executes the command, but all errors are thrown.
+     * <br>
+     * 执行命令，但抛出所有错误。
      */
     void mainWithoutErrorHandling(String[] args, Terminal terminal) throws Exception {
+        // 解析 args
         final OptionSet options = parser.parse(args);
 
         if (options.has(helpOption)) {

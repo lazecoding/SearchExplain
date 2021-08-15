@@ -57,6 +57,7 @@ public abstract class EnvironmentAwareCommand extends Command {
      */
     public EnvironmentAwareCommand(final String description, final Runnable beforeMain) {
         super(description, beforeMain);
+        // 设置某项属性
         this.settingOption = parser.accepts("E", "Configure a setting").withRequiredArg().ofType(KeyValuePair.class);
     }
 
@@ -69,20 +70,22 @@ public abstract class EnvironmentAwareCommand extends Command {
             }
             if (settings.containsKey(kvp.key)) {
                 final String message = String.format(
-                        Locale.ROOT,
-                        "setting [%s] already set, saw [%s] and [%s]",
-                        kvp.key,
-                        settings.get(kvp.key),
-                        kvp.value);
+                    Locale.ROOT,
+                    "setting [%s] already set, saw [%s] and [%s]",
+                    kvp.key,
+                    settings.get(kvp.key),
+                    kvp.value);
                 throw new UserException(ExitCodes.USAGE, message);
             }
             settings.put(kvp.key, kvp.value);
         }
 
+        // 确保给定设置存在，如果没有设置，则从系统属性中读取。
         putSystemPropertyIfSettingIsMissing(settings, "path.data", "es.path.data");
         putSystemPropertyIfSettingIsMissing(settings, "path.home", "es.path.home");
         putSystemPropertyIfSettingIsMissing(settings, "path.logs", "es.path.logs");
 
+        // createEnv 创建 Environment
         execute(terminal, options, createEnv(settings));
     }
 
@@ -114,12 +117,12 @@ public abstract class EnvironmentAwareCommand extends Command {
         if (value != null) {
             if (settings.containsKey(setting)) {
                 final String message =
-                        String.format(
-                                Locale.ROOT,
-                                "duplicate setting [%s] found via command-line [%s] and system property [%s]",
-                                setting,
-                                settings.get(setting),
-                                value);
+                    String.format(
+                        Locale.ROOT,
+                        "duplicate setting [%s] found via command-line [%s] and system property [%s]",
+                        setting,
+                        settings.get(setting),
+                        value);
                 throw new IllegalArgumentException(message);
             } else {
                 settings.put(setting, value);

@@ -53,16 +53,20 @@ class Elasticsearch extends EnvironmentAwareCommand {
     // visible for testing
     Elasticsearch() {
         super("starts elasticsearch", () -> {}); // we configure logging later so we override the base class from configuring logging
+        // --V,--version: 打印版本信息
         versionOption = parser.acceptsAll(Arrays.asList("V", "version"),
             "Prints elasticsearch version information and exits");
+        // --d,--daemonize: 后台启动
         daemonizeOption = parser.acceptsAll(Arrays.asList("d", "daemonize"),
             "Starts Elasticsearch in the background")
             .availableUnless(versionOption);
+        // --p，--pidfile:启动时在指定路径创建一个 Pid 文件，报错当前进程的 Pid
         pidfileOption = parser.acceptsAll(Arrays.asList("p", "pidfile"),
             "Creates a pid file in the specified path on start")
             .availableUnless(versionOption)
             .withRequiredArg()
             .withValuesConvertedBy(new PathConverter());
+        // --q，--quiet:
         quietOption = parser.acceptsAll(Arrays.asList("q", "quiet"),
             "Turns off standard output/error streams logging in console")
             .availableUnless(versionOption)
@@ -71,8 +75,11 @@ class Elasticsearch extends EnvironmentAwareCommand {
 
     /**
      * Main entry point for starting elasticsearch
+     * <br>
+     * elasticsearch 启动入口
      */
     public static void main(final String[] args) throws Exception {
+        // 覆盖 DNS 缓存测策略
         overrideDnsCachePolicyProperties();
         /*
          * We want the JVM to think there is a security manager installed so that if internal policy decisions that would be based on the
@@ -87,10 +94,14 @@ class Elasticsearch extends EnvironmentAwareCommand {
             }
 
         });
+        // 注册错误监听器（启动之初就开始注册，为了不遗漏错误日志）
         LogConfigurator.registerErrorListener();
+        // 创建 Elasticsearch 实例，处理命令行参数
         final Elasticsearch elasticsearch = new Elasticsearch();
+        // 入口
         int status = main(args, elasticsearch, Terminal.DEFAULT);
         if (status != ExitCodes.OK) {
+            // 关闭
             exit(status);
         }
     }
@@ -105,7 +116,7 @@ class Elasticsearch extends EnvironmentAwareCommand {
                     Security.setProperty(property, Integer.toString(Integer.valueOf(overrideValue)));
                 } catch (final NumberFormatException e) {
                     throw new IllegalArgumentException(
-                            "failed to parse [" + overrideProperty + "] with value [" + overrideValue + "]", e);
+                        "failed to parse [" + overrideProperty + "] with value [" + overrideValue + "]", e);
                 }
             }
         }
@@ -120,6 +131,7 @@ class Elasticsearch extends EnvironmentAwareCommand {
         if (options.nonOptionArguments().isEmpty() == false) {
             throw new UserException(ExitCodes.USAGE, "Positional arguments not allowed, found " + options.nonOptionArguments());
         }
+        // JVM 版本信息
         if (options.has(versionOption)) {
             final String versionOutput = String.format(
                 Locale.ROOT,
@@ -147,6 +159,7 @@ class Elasticsearch extends EnvironmentAwareCommand {
         }
 
         try {
+            // 启动类 Init
             init(daemonize, pidFile, quiet, env);
         } catch (NodeValidationException e) {
             throw new UserException(ExitCodes.CONFIG, e.getMessage());
@@ -156,6 +169,7 @@ class Elasticsearch extends EnvironmentAwareCommand {
     void init(final boolean daemonize, final Path pidFile, final boolean quiet, Environment initialEnv)
         throws NodeValidationException, UserException {
         try {
+            // 启动类 Init，开始启动 ElasticSearch
             Bootstrap.init(!daemonize, pidFile, quiet, initialEnv);
         } catch (BootstrapException | RuntimeException e) {
             // format exceptions to the console in a special way
