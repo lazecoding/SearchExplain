@@ -35,6 +35,8 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
+ * 通用资源监视服务
+ * <br>
  * Generic resource watcher service
  *
  * Other elasticsearch services can register their resource watchers with this service using {@link #add(ResourceWatcher)}

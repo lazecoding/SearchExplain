@@ -53,6 +53,9 @@ import static org.elasticsearch.common.settings.Setting.Property;
 import static org.elasticsearch.common.settings.Setting.positiveTimeSetting;
 
 /**
+ *
+ * 该组件负责维护从该节点到集群状态中列出的所有节点的连接，并在从集群状态中删除节点后断开与节点的连接。
+ * <br>
  * This component is responsible for maintaining connections from this node to all the nodes listed in the cluster state, and for
  * disconnecting from nodes once they are removed from the cluster state. It periodically checks that all connections are still open and
  * restores them if needed. Note that this component is *not* responsible for removing nodes from the cluster state if they disconnect or

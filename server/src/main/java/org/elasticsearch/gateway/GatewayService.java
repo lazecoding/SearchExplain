@@ -47,6 +47,9 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
+/**
+ * 网关服务
+ */
 public class GatewayService extends AbstractLifecycleComponent implements ClusterStateListener {
     private static final Logger logger = LogManager.getLogger(GatewayService.class);
 

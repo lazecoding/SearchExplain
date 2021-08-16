@@ -334,9 +334,11 @@ public class Node implements Closeable {
 
             final List<Setting<?>> additionalSettings = new ArrayList<>(pluginsService.getPluginSettings());
             final List<String> additionalSettingsFilter = new ArrayList<>(pluginsService.getPluginSettingsFilter());
+            // 加载额外配置
             for (final ExecutorBuilder<?> builder : threadPool.builders()) {
                 additionalSettings.addAll(builder.getRegisteredSettings());
             }
+            // 创建一个节点客户端
             client = new NodeClient(settings, threadPool);
             final ResourceWatcherService resourceWatcherService = new ResourceWatcherService(settings, threadPool);
             final ScriptModule scriptModule = new ScriptModule(settings, pluginsService.filterPlugins(ScriptPlugin.class));
@@ -458,6 +460,7 @@ public class Node implements Closeable {
                 threadPool, pluginsService.filterPlugins(ActionPlugin.class), client, circuitBreakerService, usageService, clusterService);
             modules.add(actionModule);
 
+            // 获取 RestController,用于处理各种 Elasticsearch 的 RESTful 命令,如 _cat,_all,_cat/health,_clusters 等(Elasticsearch 称之为 action)
             final RestController restController = actionModule.getRestController();
             final NetworkModule networkModule = new NetworkModule(settings, false, pluginsService.filterPlugins(NetworkPlugin.class),
                 threadPool, bigArrays, pageCacheRecycler, circuitBreakerService, namedWriteableRegistry, xContentRegistry,
@@ -667,8 +670,10 @@ public class Node implements Closeable {
         }
 
         logger.info("starting ...");
+        // 扩展模块调用 start 方法
         pluginLifecycleComponents.forEach(LifecycleComponent::start);
 
+        // 利用 Guice 获取上述注册的各种模块以及服务，并启动
         injector.getInstance(MappingUpdatedAction.class).setClient(client);
         injector.getInstance(IndicesService.class).start();
         injector.getInstance(IndicesClusterStateService.class).start();
@@ -677,49 +682,63 @@ public class Node implements Closeable {
         injector.getInstance(SearchService.class).start();
         nodeService.getMonitorService().start();
 
+        // 获取 ClusterService 实例
         final ClusterService clusterService = injector.getInstance(ClusterService.class);
 
+        // 该组件负责维护从该节点到集群状态中列出的所有节点的连接，并在从集群状态中删除节点后断开与节点的连接。
         final NodeConnectionsService nodeConnectionsService = injector.getInstance(NodeConnectionsService.class);
         nodeConnectionsService.start();
         clusterService.setNodeConnectionsService(nodeConnectionsService);
 
         injector.getInstance(ResourceWatcherService.class).start();
         injector.getInstance(GatewayService.class).start();
+        // 一个可插入模块，允许发现其他节点，将集群状态发布到所有节点，选择引发集群状态更改事件的集群主节点。
         Discovery discovery = injector.getInstance(Discovery.class);
         clusterService.getMasterService().setClusterStatePublisher(discovery::publish);
 
         // Start the transport service now so the publish address will be added to the local disco node in ClusterService
+        // 现在启动传输服务，以便将发布地址添加到 ClusterService 中的本地节点
         TransportService transportService = injector.getInstance(TransportService.class);
         transportService.getTaskManager().setTaskResultsService(injector.getInstance(TaskResultsService.class));
         transportService.start();
         assert localNodeFactory.getNode() != null;
         assert transportService.getLocalNode().equals(localNodeFactory.getNode())
             : "transportService has a different local node than the factory provided";
+        // 源分片恢复接受来自其他对等分片的恢复请求，并启动从这个源分片到目标分片的恢复过程。
         injector.getInstance(PeerRecoverySourceService.class).start();
 
         // Load (and maybe upgrade) the metadata stored on disk
+        // 加载(可能升级)存储在磁盘上的元数据
         final GatewayMetaState gatewayMetaState = injector.getInstance(GatewayMetaState.class);
         gatewayMetaState.start(settings(), transportService, clusterService, injector.getInstance(MetaStateService.class),
             injector.getInstance(MetaDataIndexUpgradeService.class), injector.getInstance(MetaDataUpgrader.class));
         // we load the global state here (the persistent part of the cluster state stored on disk) to
         // pass it to the bootstrap checks to allow plugins to enforce certain preconditions based on the recovered state.
+        // 我们在这里加载全局状态(存储在磁盘上的集群状态的持久部分)，将其传递给引导检查，以允许插件根据恢复的状态强制执行某些先决条件。
         final MetaData onDiskMetadata = gatewayMetaState.getPersistedState().getLastAcceptedState().metaData();
         assert onDiskMetadata != null : "metadata is null but shouldn't"; // this is never null
+        // 用于在网络服务启动之后、集群服务启动之前和网络服务开始接受传入网络请求之前验证节点的钩子。
         validateNodeBeforeAcceptingRequests(new BootstrapContext(environment, onDiskMetadata), transportService.boundAddress(),
             pluginsService.filterPlugins(Plugin.class).stream()
                 .flatMap(p -> p.getBootstrapChecks().stream()).collect(Collectors.toList()));
 
         clusterService.addStateApplier(transportService.getTaskManager());
         // start after transport service so the local disco is known
-        discovery.start(); // start before cluster service so that it can set initial state on ClusterApplierService
+        // 在传输服务之后启动，以便可以知道本地节点信息
+        // start before cluster service so that it can set initial state on ClusterApplierService
+        // 在集群服务之前启动，以便它可以在 ClusterApplierService 上设置初始状态
+        discovery.start();
+        // 启动集群 TODO
         clusterService.start();
         assert clusterService.localNode().equals(localNodeFactory.getNode())
             : "clusterService has a different local node than the factory provided";
+        // 开始接受传入的请求。
         transportService.acceptIncomingRequests();
         discovery.startInitialJoin();
         final TimeValue initialStateTimeout = DiscoverySettings.INITIAL_STATE_TIMEOUT_SETTING.get(settings());
         configureNodeAndClusterIdStateListener(clusterService);
 
+        // 加入集群
         if (initialStateTimeout.millis() > 0) {
             final ThreadPool thread = injector.getInstance(ThreadPool.class);
             ClusterState clusterState = clusterService.state();
@@ -729,6 +748,7 @@ public class Node implements Closeable {
             if (clusterState.nodes().getMasterNodeId() == null) {
                 logger.debug("waiting to join the cluster. timeout [{}]", initialStateTimeout);
                 final CountDownLatch latch = new CountDownLatch(1);
+                // 等待下一个 statePredicate 状态，加入进群
                 observer.waitForNextChange(new ClusterStateObserver.Listener() {
                     @Override
                     public void onNewClusterState(ClusterState state) { latch.countDown(); }
@@ -765,6 +785,7 @@ public class Node implements Closeable {
 
         logger.info("started");
 
+        // 节点启动完毕后，启动自定义插件
         pluginsService.filterPlugins(ClusterPlugin.class).forEach(ClusterPlugin::onNodeStarted);
 
         return this;
@@ -920,6 +941,8 @@ public class Node implements Closeable {
     }
 
     /**
+     * 用于在网络服务启动之后、群集服务启动之前和网络服务开始接受传入网络请求之前验证节点的钩子。
+     * <br>
      * Hook for validating the node after network
      * services are started but before the cluster service is started
      * and before the network service starts accepting incoming network

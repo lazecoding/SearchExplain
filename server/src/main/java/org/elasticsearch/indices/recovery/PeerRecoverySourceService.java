@@ -50,6 +50,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ * 源分片恢复接受来自其他对等分片的恢复请求，并启动从这个源分片到目标分片的恢复过程。
+ * <br>
  * The source recovery accepts recovery requests from other peer shards and start the recovery process from this
  * source shard to the target shard.
  */

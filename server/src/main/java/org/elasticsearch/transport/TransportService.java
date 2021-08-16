@@ -289,7 +289,12 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
     }
 
     /**
+     * 开始接受传入的请求。
+     * <br>
      * start accepting incoming requests.
+     * <br>
+     * 当传输层启动时，它将阻塞任何传入请求，直到调用此方法
+     * <br>
      * when the transport layer starts up it will block any incoming requests until
      * this method is called
      */
