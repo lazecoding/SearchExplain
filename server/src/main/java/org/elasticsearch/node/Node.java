@@ -729,6 +729,11 @@ public class Node implements Closeable {
         // 在集群服务之前启动，以便它可以在 ClusterApplierService 上设置初始状态
         discovery.start();
         // 启动集群 TODO
+        //
+        // clusterApplierService.start(); >>  clusterApplierService 负责执行启动期间注册的任务：如 ConsistentSettingsService$HashesPublisher、InternalClusterInfoService、MlMemoryTracker、MlInitializationService、IndexLifecycleService、
+        // SnapshotLifecycleService、SnapshotRetentionService、EnrichPolicyMaintenanceService。
+        //
+        // masterService.start(); >> new Batcher(logger, threadPoolExecutor);  批处理任务执行器，用于执行集群状态更新任务
         clusterService.start();
         assert clusterService.localNode().equals(localNodeFactory.getNode())
             : "clusterService has a different local node than the factory provided";
