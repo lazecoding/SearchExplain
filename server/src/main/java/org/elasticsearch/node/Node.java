@@ -728,7 +728,7 @@ public class Node implements Closeable {
         // start before cluster service so that it can set initial state on ClusterApplierService
         // 在集群服务之前启动，以便它可以在 ClusterApplierService 上设置初始状态
         discovery.start();
-        // 启动集群 TODO
+        // 启动集群
         //
         // clusterApplierService.start(); >>  clusterApplierService 负责执行启动期间注册的任务：如 ConsistentSettingsService$HashesPublisher、InternalClusterInfoService、MlMemoryTracker、MlInitializationService、IndexLifecycleService、
         // SnapshotLifecycleService、SnapshotRetentionService、EnrichPolicyMaintenanceService。
@@ -739,6 +739,7 @@ public class Node implements Closeable {
             : "clusterService has a different local node than the factory provided";
         // 开始接受传入的请求。
         transportService.acceptIncomingRequests();
+        // TODO
         discovery.startInitialJoin();
         final TimeValue initialStateTimeout = DiscoverySettings.INITIAL_STATE_TIMEOUT_SETTING.get(settings());
         configureNodeAndClusterIdStateListener(clusterService);

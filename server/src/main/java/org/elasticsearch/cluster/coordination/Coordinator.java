@@ -721,6 +721,7 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
     @Override
     public void startInitialJoin() {
         synchronized (mutex) {
+            // 变成候选人
             becomeCandidate("startInitialJoin");
         }
         clusterBootstrapService.scheduleUnconfiguredBootstrap();
