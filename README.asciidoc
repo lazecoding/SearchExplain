@@ -1,8 +1,8 @@
 = Elasticsearch
 
-== A Distributed RESTful Search Engine
+== 分布式 RESTful 风格的搜索引擎
 
-== This project is parsed based on Elasticsearch 7.5.2
+== 基于 Elasticsearch 7.5.2
 
 === https://www.elastic.co/products/elasticsearch[https://www.elastic.co/products/elasticsearch]
 
