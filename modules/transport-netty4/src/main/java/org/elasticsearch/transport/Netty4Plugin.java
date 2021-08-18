@@ -71,6 +71,9 @@ public class Netty4Plugin extends Plugin implements NetworkPlugin {
                 .build();
     }
 
+    /**
+     * 构建 Netty4Transport，用于 Transport 传输模块
+     */
     @Override
     public Map<String, Supplier<Transport>> getTransports(Settings settings, ThreadPool threadPool, PageCacheRecycler pageCacheRecycler,
                                                           CircuitBreakerService circuitBreakerService,
@@ -79,6 +82,9 @@ public class Netty4Plugin extends Plugin implements NetworkPlugin {
             networkService, pageCacheRecycler, namedWriteableRegistry, circuitBreakerService));
     }
 
+    /**
+     * 构建 Netty4HttpServerTransport，用于 HttpServerTransport HTTP 模块
+     */
     @Override
     public Map<String, Supplier<HttpServerTransport>> getHttpTransports(Settings settings, ThreadPool threadPool, BigArrays bigArrays,
                                                                         PageCacheRecycler pageCacheRecycler,

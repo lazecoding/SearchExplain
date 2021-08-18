@@ -122,15 +122,20 @@ public class Netty4Transport extends TcpTransport {
         }
     }
 
+    /**
+     * ElasticSearch 启动时：初始化 client 和 server
+     */
     @Override
     protected void doStart() {
         boolean success = false;
         try {
             ThreadFactory threadFactory = daemonThreadFactory(settings, TRANSPORT_WORKER_THREAD_NAME_PREFIX);
             eventLoopGroup = new NioEventLoopGroup(workerCount, threadFactory);
+            // 初始化 client
             clientBootstrap = createClientBootstrap(eventLoopGroup);
             if (NetworkService.NETWORK_SERVER.get(settings)) {
                 for (ProfileSettings profileSettings : profileSettings) {
+                    // 初始化 server
                     createServerBootstrap(profileSettings, eventLoopGroup);
                     bindServer(profileSettings);
                 }

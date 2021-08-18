@@ -23,6 +23,8 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.io.stream.Writeable.Reader;
 
 /**
+ * 传输层拦截器，拦截发送方和接收方的请求。
+ * <br>
  * This interface allows plugins to intercept requests on both the sender and the receiver side.
  */
 public interface TransportInterceptor {

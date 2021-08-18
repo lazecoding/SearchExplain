@@ -175,6 +175,9 @@ public class Netty4HttpServerTransport extends AbstractHttpServerTransport {
         return this.settings;
     }
 
+    /**
+     * ElasticSearch 启动时：创建一个 HTTP Server 监听端口，当收到用户请求时，调用 dispatchRequest 对不同的请求执行相应的处理。
+     */
     @Override
     protected void doStart() {
         boolean success = false;

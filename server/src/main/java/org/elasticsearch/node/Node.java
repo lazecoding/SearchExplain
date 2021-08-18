@@ -461,7 +461,9 @@ public class Node implements Closeable {
             modules.add(actionModule);
 
             // 获取 RestController,用于处理各种 Elasticsearch 的 RESTful 命令,如 _cat,_all,_cat/health,_clusters 等(Elasticsearch 称之为 action)
+            // 并用于初始化 NetworkModule，注册 HttpServerTransport
             final RestController restController = actionModule.getRestController();
+            // 初始化 NetworkModule 的传输模块和 HTTP 模块,加载 Transport、HttpServerTransport 和 TransportInterceptor
             final NetworkModule networkModule = new NetworkModule(settings, false, pluginsService.filterPlugins(NetworkPlugin.class),
                 threadPool, bigArrays, pageCacheRecycler, circuitBreakerService, namedWriteableRegistry, xContentRegistry,
                 networkService, restController);

@@ -59,6 +59,8 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
+ * 处理注册和绑定所有网络相关类的模块。
+ * <br>
  * A module to handle registering and binding all network related classes.
  */
 public final class NetworkModule {
@@ -104,6 +106,8 @@ public final class NetworkModule {
     private final List<TransportInterceptor> transportIntercetors = new ArrayList<>();
 
     /**
+     * 创建可以插入自定义网络类的网络模块。
+     * <br>
      * Creates a network module that custom networking classes can be plugged into.
      * @param settings The settings for the node
      * @param transportClient True if only transport classes should be allowed to be registered, false otherwise.
@@ -122,17 +126,20 @@ public final class NetworkModule {
                 pageCacheRecycler, circuitBreakerService, xContentRegistry, networkService, dispatcher);
             if (transportClient == false) {
                 for (Map.Entry<String, Supplier<HttpServerTransport>> entry : httpTransportFactory.entrySet()) {
+                    // 注册 HTTP 模块
                     registerHttpTransport(entry.getKey(), entry.getValue());
                 }
             }
             Map<String, Supplier<Transport>> transportFactory = plugin.getTransports(settings, threadPool, pageCacheRecycler,
                 circuitBreakerService, namedWriteableRegistry, networkService);
             for (Map.Entry<String, Supplier<Transport>> entry : transportFactory.entrySet()) {
+                // 注册传输模块
                 registerTransport(entry.getKey(), entry.getValue());
             }
             List<TransportInterceptor> transportInterceptors = plugin.getTransportInterceptors(namedWriteableRegistry,
                 threadPool.getThreadContext());
             for (TransportInterceptor interceptor : transportInterceptors) {
+                // 注册拦截器
                 registerTransportInterceptor(interceptor);
             }
         }

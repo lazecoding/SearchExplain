@@ -37,6 +37,8 @@ import org.elasticsearch.transport.Transport;
 import org.elasticsearch.transport.TransportInterceptor;
 
 /**
+ * 扩展网络和传输相关类的插件
+ * <br>
  * Plugin for extending network and transport related classes
  */
 public interface NetworkPlugin {

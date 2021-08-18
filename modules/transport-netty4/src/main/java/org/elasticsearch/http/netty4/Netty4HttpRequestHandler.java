@@ -28,6 +28,13 @@ import io.netty.handler.codec.http.FullHttpRequest;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.http.HttpPipelinedRequest;
 
+/**
+ * Netty4HttpRequestHandler 继承了 SimpleChannelInboundHandler
+ * <br>
+ * ChannelInboundHandlerAdapter，它只允许显式地处理特定类型的消息。
+ * <br>
+ * Netty4HttpRequestHandler 处理 HttpPipelinedRequest<FullHttpRequest>
+ */
 @ChannelHandler.Sharable
 class Netty4HttpRequestHandler extends SimpleChannelInboundHandler<HttpPipelinedRequest<FullHttpRequest>> {
 

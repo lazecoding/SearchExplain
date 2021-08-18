@@ -37,6 +37,9 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 
+/**
+ * 传输模块，负责内部节点的 RPC 请求
+ */
 public interface Transport extends LifecycleComponent {
 
     /**
