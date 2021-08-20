@@ -46,7 +46,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ConnectionManager implements Closeable {
 
     private static final Logger logger = LogManager.getLogger(ConnectionManager.class);
-
+    /**
+     * NodeChannels 表示节点到节点的连接
+     */
     private final ConcurrentMap<DiscoveryNode, Transport.Connection> connectedNodes = ConcurrentCollections.newConcurrentMap();
     private final ConcurrentMap<DiscoveryNode, ListenableFuture<Void>> pendingConnections = ConcurrentCollections.newConcurrentMap();
     private final AbstractRefCounted connectingRefCounter = new AbstractRefCounted("connection manager") {

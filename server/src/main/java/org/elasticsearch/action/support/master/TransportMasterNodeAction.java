@@ -106,6 +106,7 @@ public abstract class TransportMasterNodeAction<Request extends MasterNodeReques
 
     @Override
     protected void doExecute(Task task, final Request request, ActionListener<Response> listener) {
+        // 异步单例
         new AsyncSingleAction(task, request, listener).start();
     }
 
@@ -126,15 +127,19 @@ public abstract class TransportMasterNodeAction<Request extends MasterNodeReques
         }
 
         public void start() {
+            // 集群状态
             ClusterState state = clusterService.state();
+            // 集群状态观察者
             this.observer
                 = new ClusterStateObserver(state, clusterService, request.masterNodeTimeout(), logger, threadPool.getThreadContext());
+            // 启动任务
             doStart(state);
         }
 
         protected void doStart(ClusterState clusterState) {
             try {
                 final Predicate<ClusterState> masterChangePredicate = MasterNodeChangePredicate.build(clusterState);
+                // 获取集群节点
                 final DiscoveryNodes nodes = clusterState.nodes();
                 if (nodes.isLocalNodeElectedMaster() || localExecute(request)) {
                     // check for block, if blocked, retry, else, execute locally

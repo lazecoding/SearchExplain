@@ -292,6 +292,8 @@ public abstract class AbstractHttpServerTransport extends AbstractLifecycleCompo
     }
 
     /**
+     * 处理接收到的网络消息
+     * <br>
      * This method handles an incoming http request.
      *
      * @param httpRequest that is incoming
@@ -368,7 +370,7 @@ public abstract class AbstractHttpServerTransport extends AbstractLifecycleCompo
             }
             channel = innerChannel;
         }
-
+        // 调度请求
         dispatchRequest(restRequest, channel, badRequestCause);
     }
 

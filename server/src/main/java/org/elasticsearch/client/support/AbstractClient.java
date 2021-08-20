@@ -387,6 +387,8 @@ public abstract class AbstractClient implements Client {
     }
 
     /**
+     * 这是所有客户端的单一执行点
+     * <br>
      * This is the single execution point of *all* clients.
      */
     @Override
@@ -1349,6 +1351,7 @@ public abstract class AbstractClient implements Client {
 
         @Override
         public void create(final CreateIndexRequest request, final ActionListener<CreateIndexResponse> listener) {
+            // 执行
             execute(CreateIndexAction.INSTANCE, request, listener);
         }
 

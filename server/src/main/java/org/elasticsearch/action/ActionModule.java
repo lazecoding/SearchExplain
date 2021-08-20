@@ -563,6 +563,7 @@ public class ActionModule extends AbstractModule {
                 catActions.add((AbstractCatAction) a);
             }
         };
+        // 注册 REST handler, 它们都继承了 BaseRestHandler，构造函数中都注入了 restController，用于注册 handler。
         registerHandler.accept(new RestAddVotingConfigExclusionAction(restController));
         registerHandler.accept(new RestClearVotingConfigExclusionsAction(restController));
         registerHandler.accept(new RestMainAction(restController));

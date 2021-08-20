@@ -80,6 +80,7 @@ public class NodeClient extends AbstractClient {
     public <    Request extends ActionRequest,
                 Response extends ActionResponse
             > Task executeLocally(ActionType<Response> action, Request request, ActionListener<Response> listener) {
+        // 获取对应的 ACTION，执行请求
         return transportAction(action).execute(request, listener);
     }
 

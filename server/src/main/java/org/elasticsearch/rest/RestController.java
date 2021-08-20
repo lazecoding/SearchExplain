@@ -141,6 +141,8 @@ public class RestController implements HttpServerTransport.Dispatcher {
     }
 
     /**
+     * 注册一个 REST 处理程序，当提供的方法和路径中的一个与请求匹配时执行。即 PathTrie，路由字典。
+     * <br>
      * Registers a REST handler to be executed when one of the provided methods and path match the request.
      *
      * @param path Path to handle (e.g., "/{index}/{type}/_bulk")
@@ -152,10 +154,14 @@ public class RestController implements HttpServerTransport.Dispatcher {
             usageService.addRestHandler((BaseRestHandler) handler);
         }
         final RestHandler maybeWrappedHandler = handlerWrapper.apply(handler);
+        // handlers 就是 PathTrie，路由字典。将路由和对应的 handler 映射。（为了之前处理 REST 请求时，根据 REST 请求结构从 PathTrie 中获取对应的 handler）
         handlers.insertOrUpdate(path, new MethodHandlers(path, maybeWrappedHandler, method),
             (mHandlers, newMHandler) -> mHandlers.addMethods(maybeWrappedHandler, method));
     }
 
+    /**
+     * 请求调度
+     */
     @Override
     public void dispatchRequest(RestRequest request, RestChannel channel, ThreadContext threadContext) {
         if (request.rawPath().equals("/favicon.ico")) {
@@ -163,6 +169,7 @@ public class RestController implements HttpServerTransport.Dispatcher {
             return;
         }
         try {
+            // 处理请求
             tryAllHandlers(request, channel, threadContext);
         } catch (Exception e) {
             try {
@@ -219,6 +226,7 @@ public class RestController implements HttpServerTransport.Dispatcher {
             }
             // iff we could reserve bytes for the request we need to send the response also over this channel
             responseChannel = new ResourceHandlingHttpChannel(channel, circuitBreakerService, contentLength);
+            // handler 处理请求，下面就要准备调度具体 handler 的 prepareRequest 了
             handler.handleRequest(request, responseChannel, client);
         } catch (Exception e) {
             responseChannel.sendResponse(new BytesRestResponse(responseChannel, e));
@@ -256,6 +264,9 @@ public class RestController implements HttpServerTransport.Dispatcher {
         channel.sendResponse(BytesRestResponse.createSimpleErrorResponse(channel, NOT_ACCEPTABLE, errorMessage));
     }
 
+    /**
+     * 尝试所有 handler 处理请求
+     */
     private void tryAllHandlers(final RestRequest request, final RestChannel channel, final ThreadContext threadContext) throws Exception {
         for (String key : headersToCopy) {
             String httpHeader = request.header(key);
@@ -278,6 +289,7 @@ public class RestController implements HttpServerTransport.Dispatcher {
             // Resolves the HTTP method and fails if the method is invalid
             requestMethod = request.method();
             // Loop through all possible handlers, attempting to dispatch the request
+            // 从 PathTrie 中获取路由对应的所有 handler
             Iterator<MethodHandlers> allHandlers = getAllHandlers(request.params(), rawPath);
             while (allHandlers.hasNext()) {
                 final RestHandler handler;
@@ -292,6 +304,7 @@ public class RestController implements HttpServerTransport.Dispatcher {
                       return;
                   }
                 } else {
+                    // 请求调度
                     dispatchRequest(request, channel, handler);
                     return;
                 }

@@ -78,6 +78,8 @@ import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.common.unit.TimeValue.timeValueSeconds;
 
 /**
+ * 传输客户端
+ * <br>
  * The transport client allows to create a client that is not part of the cluster, but simply connects to one
  * or more nodes directly by adding their respective addresses using
  * {@link #addTransportAddress(org.elasticsearch.common.transport.TransportAddress)}.

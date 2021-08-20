@@ -71,6 +71,9 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+/**
+ * 传输模块服务类：用于处理节点通信
+ */
 public class TransportService extends AbstractLifecycleComponent implements TransportMessageListener, TransportConnectionListener {
     private static final Logger logger = LogManager.getLogger(TransportService.class);
 
@@ -154,6 +157,9 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
             new ConnectionManager(settings, transport));
     }
 
+    /**
+     *  初始化通信模块服务
+     */
     public TransportService(Settings settings, Transport transport, ThreadPool threadPool, TransportInterceptor transportInterceptor,
                             Function<BoundTransportAddress, DiscoveryNode> localNodeFactory, @Nullable ClusterSettings clusterSettings,
                             Set<String> taskHeaders, ConnectionManager connectionManager) {
@@ -181,6 +187,7 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
                 remoteClusterService.listenForUpdates(clusterSettings);
             }
         }
+        // 注册请求处理器
         registerRequestHandler(
             HANDSHAKE_ACTION_NAME,
             ThreadPool.Names.SAME,
@@ -330,6 +337,8 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
     }
 
     /**
+     * 使用默认连接配置文件连接到指定的节点
+     * <br>
      * Connect to the specified node with the default connection profile
      *
      * @param node the node to connect to
@@ -339,6 +348,8 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
     }
 
     /**
+     * 使用给定的连接文件连接到指定的节点
+     * <br>
      * Connect to the specified node with the given connection profile
      *
      * @param node the node to connect to
@@ -349,6 +360,10 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
     }
 
     /**
+     * 使用给定的连接文件连接到指定的节点
+     * <br>
+     * ActionListener 将在调用线程或通用线程池中被调用。
+     * <br>
      * Connect to the specified node with the given connection profile.
      * The ActionListener will be called on the calling thread or the generic thread pool.
      *
@@ -360,6 +375,10 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
     }
 
     /**
+     * 使用给定的连接文件连接到指定的节点
+     * <br>
+     * ActionListener 将在调用线程或通用线程池中被调用。
+     * <br>
      * Connect to the specified node with the given connection profile.
      * The ActionListener will be called on the calling thread or the generic thread pool.
      *

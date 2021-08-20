@@ -61,6 +61,7 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
          * this method.
          */
         Task task = taskManager.register("transport", actionName, request);
+        // 执行
         execute(task, request, new ActionListener<Response>() {
             @Override
             public void onResponse(Response response) {
@@ -126,6 +127,7 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
         }
 
         RequestFilterChain<Request, Response> requestFilterChain = new RequestFilterChain<>(this, logger);
+        // 继续执行
         requestFilterChain.proceed(task, actionName, request, listener);
     }
 
@@ -150,6 +152,7 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
                 if (i < this.action.filters.length) {
                     this.action.filters[i].apply(task, actionName, request, listener, this);
                 } else if (i == this.action.filters.length) {
+                    // 执行请求
                     this.action.doExecute(task, request, listener);
                 } else {
                     listener.onFailure(new IllegalStateException("proceed was called too many times"));

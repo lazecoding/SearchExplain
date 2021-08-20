@@ -44,6 +44,9 @@ class Netty4HttpRequestHandler extends SimpleChannelInboundHandler<HttpPipelined
         this.serverTransport = serverTransport;
     }
 
+    /**
+     * 处理接收到的网络消息
+     */
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, HttpPipelinedRequest<FullHttpRequest> msg) {
         Netty4HttpChannel channel = ctx.channel().attr(Netty4HttpServerTransport.HTTP_CHANNEL_KEY).get();
@@ -73,6 +76,7 @@ class Netty4HttpRequestHandler extends SimpleChannelInboundHandler<HttpPipelined
                 serverTransport.incomingRequestError(httpRequest, channel, (Exception) cause);
             }
         } else {
+            // 处理传入的 HTTP 请求
             serverTransport.incomingRequest(httpRequest, channel);
         }
     }
