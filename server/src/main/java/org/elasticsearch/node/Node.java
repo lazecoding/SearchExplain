@@ -607,6 +607,7 @@ public class Node implements Closeable {
             resourcesToClose.addAll(pluginLifecycleComponents);
             resourcesToClose.add(injector.getInstance(PeerRecoverySourceService.class));
             this.pluginLifecycleComponents = Collections.unmodifiableList(pluginLifecycleComponents);
+            // 进一步初始化 node client ：将 action 对应的 handler 缓存在 map 中；保存 Node Id;注入 remoteClusterService
             client.initialize(injector.getInstance(new Key<Map<ActionType, TransportAction>>() {}),
                 () -> clusterService.localNode().getId(), transportService.getRemoteClusterService());
 
