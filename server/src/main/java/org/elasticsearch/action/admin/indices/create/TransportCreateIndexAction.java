@@ -36,6 +36,8 @@ import org.elasticsearch.transport.TransportService;
 import java.io.IOException;
 
 /**
+ * 创建索引的过程，从 ElasticSearch 集群上来说就是写入 Index 元数据的过程，这一操作由 Master 节点完成。因此，TransportCreateIndexAction 继承了 TransportMasterNodeAction，，并实现了 materOperation 方法。
+ * <br>
  * Create index action.
  */
 public class TransportCreateIndexAction extends TransportMasterNodeAction<CreateIndexRequest, CreateIndexResponse> {
@@ -67,6 +69,9 @@ public class TransportCreateIndexAction extends TransportMasterNodeAction<Create
         return state.blocks().indexBlockedException(ClusterBlockLevel.METADATA_WRITE, request.index());
     }
 
+    /**
+     * 主节点执行的操作：create index
+     */
     @Override
     protected void masterOperation(final CreateIndexRequest request, final ClusterState state,
                                    final ActionListener<CreateIndexResponse> listener) {
@@ -74,15 +79,16 @@ public class TransportCreateIndexAction extends TransportMasterNodeAction<Create
         if (cause.length() == 0) {
             cause = "api";
         }
-
+        // 获取 Index 名
         final String indexName = indexNameExpressionResolver.resolveDateMathExpression(request.index());
+        // 初始化 CreateIndexClusterStateUpdateRequest 属性，用于构建 StateUpdateTask
         final CreateIndexClusterStateUpdateRequest updateRequest =
             new CreateIndexClusterStateUpdateRequest(cause, indexName, request.index())
                 .ackTimeout(request.timeout()).masterNodeTimeout(request.masterNodeTimeout())
                 .settings(request.settings()).mappings(request.mappings())
                 .aliases(request.aliases())
                 .waitForActiveShards(request.waitForActiveShards());
-
+        // 执行 CreateIndex
         createIndexService.createIndex(updateRequest, ActionListener.map(listener, response ->
             new CreateIndexResponse(response.isAcknowledged(), response.isShardsAcknowledged(), indexName)));
     }

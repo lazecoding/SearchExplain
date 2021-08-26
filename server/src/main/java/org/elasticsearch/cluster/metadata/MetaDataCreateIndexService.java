@@ -187,6 +187,8 @@ public class MetaDataCreateIndexService {
     }
 
     /**
+     * 创建一个 Index 并等待该 Index 的副本分片转变为活跃状态。
+     * <br>
      * Creates an index in the cluster state and waits for the specified number of shard copies to
      * become active (as specified in {@link CreateIndexClusterStateUpdateRequest#waitForActiveShards()})
      * before sending the response on the listener. If the index creation was successfully applied on
@@ -202,8 +204,10 @@ public class MetaDataCreateIndexService {
      */
     public void createIndex(final CreateIndexClusterStateUpdateRequest request,
                             final ActionListener<CreateIndexClusterStateUpdateResponse> listener) {
+        // 创建 Index
         onlyCreateIndex(request, ActionListener.wrap(response -> {
             if (response.isAcknowledged()) {
+                // 等待分配副本转变为活跃状态
                 activeShardsObserver.waitForActiveShards(new String[]{request.index()}, request.waitForActiveShards(), request.ackTimeout(),
                     shardsAcknowledged -> {
                         if (shardsAcknowledged == false) {
@@ -220,10 +224,12 @@ public class MetaDataCreateIndexService {
 
     private void onlyCreateIndex(final CreateIndexClusterStateUpdateRequest request,
                                  final ActionListener<ClusterStateUpdateResponse> listener) {
+        // 构建 settings 属性，如 number_of_shards、number_of_replicas
         Settings.Builder updatedSettingsBuilder = Settings.builder();
         Settings build = updatedSettingsBuilder.put(request.settings()).normalizePrefix(IndexMetaData.INDEX_SETTING_PREFIX).build();
         indexScopedSettings.validate(build, true); // we do validate here - index setting must be consistent
         request.settings(build);
+        // 提交 StateUpdateTask 任务
         clusterService.submitStateUpdateTask(
                 "create-index [" + request.index() + "], cause [" + request.cause() + "]",
                 new IndexCreationTask(
@@ -243,6 +249,9 @@ public class MetaDataCreateIndexService {
         void validate(CreateIndexClusterStateUpdateRequest request, ClusterState state);
     }
 
+    /**
+     * 创建 Index 任务
+     */
     static class IndexCreationTask extends AckedClusterStateUpdateTask<ClusterStateUpdateResponse> {
 
         private final IndicesService indicesService;
