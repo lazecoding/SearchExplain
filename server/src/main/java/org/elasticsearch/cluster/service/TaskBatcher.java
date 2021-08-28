@@ -121,11 +121,13 @@ public abstract class TaskBatcher {
     protected abstract void onTimeout(List<? extends BatchedTask> tasks, TimeValue timeout);
 
     void runIfNotProcessed(BatchedTask updateTask) {
+        // 如果该任务已经被处理，不需要再次处理； processed 是个原子常量
         // if this task is already processed, it shouldn't execute other tasks with same batching key that arrived later,
         // to give other tasks with different batching key a chance to execute.
         if (updateTask.processed.get() == false) {
             final List<BatchedTask> toExecute = new ArrayList<>();
             final Map<String, List<BatchedTask>> processTasksBySource = new HashMap<>();
+            // 同步处理批处理键（同步锁），将需要执行的任务放到 toExecute 中
             synchronized (tasksPerBatchingKey) {
                 LinkedHashSet<BatchedTask> pending = tasksPerBatchingKey.remove(updateTask.batchingKey);
                 if (pending != null) {
@@ -141,12 +143,13 @@ public abstract class TaskBatcher {
                 }
             }
 
+            // 如果存在等待执行的任务
             if (toExecute.isEmpty() == false) {
                 final String tasksSummary = processTasksBySource.entrySet().stream().map(entry -> {
                     String tasks = updateTask.describeTasks(entry.getValue());
                     return tasks.isEmpty() ? entry.getKey() : entry.getKey() + "[" + tasks + "]";
                 }).reduce((s1, s2) -> s1 + ", " + s2).orElse("");
-
+                // 执行任务
                 run(updateTask.batchingKey, toExecute, tasksSummary);
             }
         }

@@ -148,6 +148,7 @@ public class MasterService extends AbstractLifecycleComponent {
         protected void run(Object batchingKey, List<? extends BatchedTask> tasks, String tasksSummary) {
             ClusterStateTaskExecutor<Object> taskExecutor = (ClusterStateTaskExecutor<Object>) batchingKey;
             List<UpdateTask> updateTasks = (List<UpdateTask>) tasks;
+            // 执行任务 UpdateTask
             runTasks(new TaskInputs(taskExecutor, updateTasks, tasksSummary));
         }
 
@@ -208,7 +209,7 @@ public class MasterService extends AbstractLifecycleComponent {
 
         logger.debug("executing cluster state update for [{}]", summary);
         final ClusterState previousClusterState = state();
-
+        // 判断本节点是否是 Master 节点
         if (!previousClusterState.nodes().isLocalNodeElectedMaster() && taskInputs.runOnlyWhenMaster()) {
             logger.debug("failing [{}]: local node is no longer master", summary);
             taskInputs.onNoLongerMaster();
@@ -235,6 +236,7 @@ public class MasterService extends AbstractLifecycleComponent {
             }
             final long publicationStartTime = threadPool.relativeTimeInMillis();
             try {
+                // 获取 ClusterChangedEvent，用于发布集群状态更新事件
                 ClusterChangedEvent clusterChangedEvent = new ClusterChangedEvent(summary, newClusterState, previousClusterState);
                 // new cluster state, notify all listeners
                 final DiscoveryNodes.Delta nodesDelta = clusterChangedEvent.nodesDelta();
@@ -247,6 +249,7 @@ public class MasterService extends AbstractLifecycleComponent {
                 }
 
                 logger.debug("publishing cluster state version [{}]", newClusterState.version());
+                // 发布集群状态更新事件
                 publish(clusterChangedEvent, taskOutputs, publicationStartTime);
             } catch (Exception e) {
                 handleException(summary, publicationStartTime, newClusterState, e);
