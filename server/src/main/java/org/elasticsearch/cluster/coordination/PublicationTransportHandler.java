@@ -61,6 +61,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/**
+ * 发布器网络处理器
+ */
 public class PublicationTransportHandler {
 
     private static final Logger logger = LogManager.getLogger(PublicationTransportHandler.class);
@@ -92,10 +95,15 @@ public class PublicationTransportHandler {
     public PublicationTransportHandler(TransportService transportService, NamedWriteableRegistry namedWriteableRegistry,
                                        Function<PublishRequest, PublishWithJoinResponse> handlePublishRequest,
                                        BiConsumer<ApplyCommitRequest, ActionListener<Void>> handleApplyCommit) {
+        // 注入 transportService、namedWriteableRegistry、handlePublishRequest
         this.transportService = transportService;
         this.namedWriteableRegistry = namedWriteableRegistry;
         this.handlePublishRequest = handlePublishRequest;
 
+        // 注册请求处理器
+        // PUBLISH_STATE_ACTION_NAME：internal:cluster/coordination/publish_state
+        // TransportRequestHandler#messageReceived 的实现： (request, channel, task) -> channel.sendResponse(handleIncomingPublishRequest(request))
+        // handleIncomingPublishRequest，处理传入的请求
         transportService.registerRequestHandler(PUBLISH_STATE_ACTION_NAME, ThreadPool.Names.GENERIC, false, false,
             BytesTransportRequest::new, (request, channel, task) -> channel.sendResponse(handleIncomingPublishRequest(request)));
 
@@ -208,6 +216,7 @@ public class PublicationTransportHandler {
                 } else {
                     responseActionListener = originalListener;
                 }
+                // 全量更新发布还是增量更新发布
                 if (sendFullVersion || !previousState.nodes().nodeExists(destination)) {
                     logger.trace("sending full cluster state version {} to {}", newState.version(), destination);
                     PublicationTransportHandler.this.sendFullClusterState(newState, serializedStates, destination, responseActionListener);
@@ -257,6 +266,9 @@ public class PublicationTransportHandler {
         };
     }
 
+    /**
+     * 发送节点状态到各个节点
+     */
     private void sendClusterStateToNode(ClusterState clusterState, BytesReference bytes, DiscoveryNode node,
                                         ActionListener<PublishWithJoinResponse> responseActionListener, boolean sendDiffs,
                                         Map<Version, BytesReference> serializedStates) {
@@ -297,15 +309,18 @@ public class PublicationTransportHandler {
             final String actionName;
             final TransportResponseHandler<?> transportResponseHandler;
             if (Coordinator.isZen1Node(node)) {
+                // internal:discovery/zen/publish/commit
                 actionName = PublishClusterStateAction.SEND_ACTION_NAME;
                 transportResponseHandler = publishWithJoinResponseHandler.wrap(empty -> new PublishWithJoinResponse(
                     new PublishResponse(clusterState.term(), clusterState.version()),
                     Optional.of(new Join(node, transportService.getLocalNode(), clusterState.term(), clusterState.term(),
                         clusterState.version()))), in -> TransportResponse.Empty.INSTANCE);
             } else {
+                // 发布集群状态 ： internal:cluster/coordination/publish_state
                 actionName = PUBLISH_STATE_ACTION_NAME;
                 transportResponseHandler = publishWithJoinResponseHandler;
             }
+            // 通过 TransportService 发送请求，TransportService 是传输模块服务类，用于处理节点通信
             transportService.sendRequest(node, actionName, request, stateRequestOptions, transportResponseHandler);
         } catch (Exception e) {
             logger.warn(() -> new ParameterizedMessage("error sending cluster state to {}", node), e);
@@ -359,6 +374,7 @@ public class PublicationTransportHandler {
                                       DiscoveryNode node, ActionListener<PublishWithJoinResponse> responseActionListener) {
         final BytesReference bytes = serializedDiffs.get(node.getVersion());
         assert bytes != null : "failed to find serialized diff for node " + node + " of version [" + node.getVersion() + "]";
+        // 发送节点状态到各个节点
         sendClusterStateToNode(clusterState, bytes, node, responseActionListener, true, serializedStates);
     }
 
@@ -392,7 +408,9 @@ public class PublicationTransportHandler {
             in = new NamedWriteableAwareStreamInput(in, namedWriteableRegistry);
             in.setVersion(request.version());
             // If true we received full cluster state - otherwise diffs
+            // 如果为真，我们接收到完整的集群状态，否则是差值
             if (in.readBoolean()) {
+                // 传入的集群状态
                 final ClusterState incomingState;
                 try {
                     incomingState = ClusterState.readFrom(in, transportService.getLocalNode());
@@ -404,15 +422,18 @@ public class PublicationTransportHandler {
                 logger.debug("received full cluster state version [{}] with size [{}]", incomingState.version(),
                     request.bytes().length());
                 final PublishWithJoinResponse response = acceptState(incomingState);
+                // 覆盖更新 lastSeenClusterState，最近集群状态
                 lastSeenClusterState.set(incomingState);
                 return response;
             } else {
+                // 最近的状态
                 final ClusterState lastSeen = lastSeenClusterState.get();
                 if (lastSeen == null) {
                     logger.debug("received diff for but don't have any local cluster state - requesting full state");
                     incompatibleClusterStateDiffReceivedCount.incrementAndGet();
                     throw new IncompatibleClusterStateVersionException("have no local cluster state");
                 } else {
+                    // 传入的状态
                     ClusterState incomingState;
                     try {
                         Diff<ClusterState> diff = ClusterState.readDiffFrom(in, lastSeen.nodes().getLocalNode());
@@ -428,6 +449,7 @@ public class PublicationTransportHandler {
                     logger.debug("received diff cluster state version [{}] with uuid [{}], diff size [{}]",
                         incomingState.version(), incomingState.stateUUID(), request.bytes().length());
                     final PublishWithJoinResponse response = acceptState(incomingState);
+                    // CAS 更新 lastSeenClusterState，最近集群状态
                     lastSeenClusterState.compareAndSet(lastSeen, incomingState);
                     return response;
                 }

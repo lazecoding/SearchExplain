@@ -268,6 +268,7 @@ public class MasterService extends AbstractLifecycleComponent {
                 return isMasterUpdateThread() || super.blockingAllowed();
             }
         };
+        // 集群状态发布器 发布集群状态
         clusterStatePublisher.publish(clusterChangedEvent, fut, taskOutputs.createAckListener(threadPool, clusterChangedEvent.state()));
 
         // indefinitely wait for publication to complete

@@ -39,6 +39,9 @@ import java.util.Set;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
+/**
+ * 发布
+ */
 public abstract class Publication {
 
     protected final Logger logger = LogManager.getLogger(getClass());
@@ -70,6 +73,7 @@ public abstract class Publication {
             onFaultyNode(faultyNode);
         }
         onPossibleCommitFailure();
+        // 发送发布请求
         publicationTargets.forEach(PublicationTarget::sendPublishRequest);
     }
 
@@ -243,6 +247,7 @@ public abstract class Publication {
             }
             assert state == PublicationTargetState.NOT_STARTED : state + " -> " + PublicationTargetState.SENT_PUBLISH_REQUEST;
             state = PublicationTargetState.SENT_PUBLISH_REQUEST;
+            // 发送发布请求，并设置响应处理器
             Publication.this.sendPublishRequest(discoveryNode, publishRequest, new PublishResponseHandler());
             // TODO Can this ^ fail with an exception? Target should be failed if so.
             assert publicationCompletedIffAllTargetsInactiveOrCancelled();

@@ -94,6 +94,9 @@ import static org.elasticsearch.cluster.coordination.NoMasterBlockService.NO_MAS
 import static org.elasticsearch.gateway.ClusterStateUpdaters.hideStateIfNotRecovered;
 import static org.elasticsearch.gateway.GatewayService.STATE_NOT_RECOVERED_BLOCK;
 
+/**
+ * 协调器
+ */
 public class Coordinator extends AbstractLifecycleComponent implements Discovery {
 
     public static final long ZEN1_BWC_TERM = 0;
@@ -1042,6 +1045,7 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
     @Override
     public void publish(ClusterChangedEvent clusterChangedEvent, ActionListener<Void> publishListener, AckListener ackListener) {
         try {
+            // 同步锁
             synchronized (mutex) {
                 if (mode != Mode.LEADER || getCurrentTerm() != clusterChangedEvent.state().term()) {
                     logger.debug(() -> new ParameterizedMessage("[{}] failed publication as node is no longer master for term {}",
@@ -1061,7 +1065,7 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
                 }
 
                 assert assertPreviousStateConsistency(clusterChangedEvent);
-
+                // 集群状态
                 final ClusterState clusterState = clusterChangedEvent.state();
 
                 assert getLocalNode().equals(clusterState.getNodes().get(getLocalNode().getId())) :
@@ -1071,14 +1075,16 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
                     publicationHandler.newPublicationContext(clusterChangedEvent);
 
                 final PublishRequest publishRequest = coordinationState.get().handleClientValue(clusterState);
+                // 实例化 CoordinatorPublication，包含 publishRequest 初始化
                 final CoordinatorPublication publication = new CoordinatorPublication(publishRequest, publicationContext,
                     new ListenableFuture<>(), ackListener, publishListener);
                 currentPublication = Optional.of(publication);
-
+                // 获取 DiscoveryNodes
                 final DiscoveryNodes publishNodes = publishRequest.getAcceptedState().nodes();
                 leaderChecker.setCurrentNodes(publishNodes);
                 followersChecker.setCurrentNodes(publishNodes);
                 lagDetector.setTrackedNodes(publishNodes);
+                // // 开始发布
                 publication.start(followersChecker.getFaultyNodes());
             }
         } catch (Exception e) {
@@ -1246,6 +1252,9 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
         }
     }
 
+    /**
+     * 协调发布
+     */
     class CoordinatorPublication extends Publication {
 
         private final PublishRequest publishRequest;
