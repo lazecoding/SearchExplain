@@ -328,8 +328,10 @@ public class Netty4Transport extends TcpTransport {
         @Override
         protected void initChannel(Channel ch) throws Exception {
             ch.pipeline().addLast("logging", new ESLoggingHandler());
+            // 数据包大小处理器
             ch.pipeline().addLast("size", new Netty4SizeHeaderFrameDecoder());
             // using a dot as a prefix means this cannot come from any settings parsed
+            // Message 处理器
             ch.pipeline().addLast("dispatcher", new Netty4MessageChannelHandler(Netty4Transport.this));
         }
 
@@ -354,7 +356,9 @@ public class Netty4Transport extends TcpTransport {
             Netty4TcpChannel nettyTcpChannel = new Netty4TcpChannel(ch, true, name, ch.newSucceededFuture());
             ch.attr(CHANNEL_KEY).set(nettyTcpChannel);
             ch.pipeline().addLast("logging", new ESLoggingHandler());
+            // 数据包大小处理器
             ch.pipeline().addLast("size", new Netty4SizeHeaderFrameDecoder());
+            // Message 处理器
             ch.pipeline().addLast("dispatcher", new Netty4MessageChannelHandler(Netty4Transport.this));
             serverAcceptedChannel(nettyTcpChannel);
         }

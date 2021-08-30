@@ -657,6 +657,8 @@ public abstract class TcpTransport extends AbstractLifecycleComponent implements
     protected abstract void stopInternal();
 
     /**
+     * 处理已解码的入站消息
+     * <br>
      * Handles inbound message that has been decoded.
      *
      * @param channel the channel the message is from

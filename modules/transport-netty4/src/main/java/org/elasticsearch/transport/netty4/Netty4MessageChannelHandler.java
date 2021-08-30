@@ -50,6 +50,9 @@ final class Netty4MessageChannelHandler extends ChannelDuplexHandler {
         this.transport = transport;
     }
 
+    /**
+     * 接收网络消息，处理节点通信
+     */
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         assert Transports.assertTransportThread();
@@ -59,6 +62,7 @@ final class Netty4MessageChannelHandler extends ChannelDuplexHandler {
         try {
             Channel channel = ctx.channel();
             Attribute<Netty4TcpChannel> channelAttribute = channel.attr(Netty4Transport.CHANNEL_KEY);
+            // 处理已解码的入站消息
             transport.inboundMessage(channelAttribute.get(), Netty4Utils.toBytesReference(buffer));
         } finally {
             buffer.release();

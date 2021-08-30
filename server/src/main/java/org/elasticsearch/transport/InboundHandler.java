@@ -95,10 +95,13 @@ public class InboundHandler {
 
     void inboundMessage(TcpChannel channel, BytesReference message) throws Exception {
         channel.getChannelStats().markAccessed(threadPool.relativeTimeInMillis());
+        // 日志
         TransportLogger.logInboundMessage(channel, message);
         readBytesMetric.inc(message.length() + TcpHeader.MARKER_BYTES_SIZE + TcpHeader.MESSAGE_LENGTH_SIZE);
         // Message length of 0 is a ping
+        // message 长度为 0，进行 Ping 操作，保活
         if (message.length() != 0) {
+            // 处理接收的消息
             messageReceived(message, channel);
         } else {
             keepAlive.receiveKeepAlive(channel);
@@ -114,7 +117,9 @@ public class InboundHandler {
             // Place the context with the headers from the message
             message.getStoredContext().restore();
             threadContext.putTransient("_remote_address", remoteAddress);
+            // 判断是否是请求消息
             if (message.isRequest()) {
+                // 处理请求
                 handleRequest(channel, (InboundMessage.Request) message, reference.length());
             } else {
                 final TransportResponseHandler<?> handler;
@@ -151,6 +156,7 @@ public class InboundHandler {
 
     private void handleRequest(TcpChannel channel, InboundMessage.Request message, int messageLengthBytes) {
         final Set<String> features = message.getFeatures();
+        // 获取 actionName
         final String action = message.getActionName();
         final long requestId = message.getRequestId();
         final StreamInput stream = message.getStreamInput();
@@ -158,9 +164,12 @@ public class InboundHandler {
         TransportChannel transportChannel = null;
         try {
             messageListener.onRequestReceived(requestId, action);
+            // 是否是握手请求
             if (message.isHandshake()) {
+                // 握手
                 handshaker.handleHandshake(version, features, channel, requestId, stream);
             } else {
+                // 获取 action 对应的请求处理器
                 final RequestHandlerRegistry reg = getRequestHandler(action);
                 if (reg == null) {
                     throw new ActionNotFoundTransportException(action);
@@ -173,6 +182,7 @@ public class InboundHandler {
                 }
                 transportChannel = new TcpTransportChannel(outboundHandler, channel, action, requestId, version, features,
                     circuitBreakerService, messageLengthBytes, message.isCompress());
+                // 获取 request
                 final TransportRequest request = reg.newRequest(stream);
                 request.remoteAddress(new TransportAddress(channel.getRemoteAddress()));
                 // in case we throw an exception, i.e. when the limit is hit, we don't want to verify
@@ -182,6 +192,7 @@ public class InboundHandler {
                     throw new IllegalStateException("Message not fully read (request) for requestId [" + requestId + "], action [" + action
                         + "], available [" + stream.available() + "]; resetting");
                 }
+                // 通过线程池执行请求处理器 ：RequestHandler 实现了 Runnable。
                 threadPool.executor(reg.getExecutor()).execute(new RequestHandler(reg, request, transportChannel));
             }
         } catch (Exception e) {
@@ -247,6 +258,9 @@ public class InboundHandler {
         });
     }
 
+    /**
+     * 请求处理器，继承了 AbstractRunnable，实现了 Runnable 接口。
+     */
     private static class RequestHandler extends AbstractRunnable {
         private final RequestHandlerRegistry reg;
         private final TransportRequest request;
@@ -261,6 +275,7 @@ public class InboundHandler {
         @SuppressWarnings({"unchecked"})
         @Override
         protected void doRun() throws Exception {
+            // 处理接收到的消息
             reg.processMessageReceived(request, transportChannel);
         }
 

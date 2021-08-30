@@ -21,6 +21,9 @@ package org.elasticsearch.transport;
 
 import org.elasticsearch.tasks.Task;
 
+/**
+ * 函数式接口
+ */
 public interface TransportRequestHandler<T extends TransportRequest> {
 
     void messageReceived(T request, TransportChannel channel, Task task) throws Exception;
