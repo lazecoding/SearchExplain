@@ -75,7 +75,11 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
-/** Performs shard-level bulk (index, delete or update) operations */
+/**
+ * 执行分片级批量(索引、删除或更新)操作
+ * <br>
+ *  Performs shard-level bulk (index, delete or update) operations
+ */
 public class TransportShardBulkAction extends TransportWriteAction<BulkShardRequest, BulkShardRequest, BulkShardResponse> {
 
     public static final String ACTION_NAME = BulkAction.NAME + "[s]";

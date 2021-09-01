@@ -162,6 +162,7 @@ public abstract class TransportReplicationAction<
     @Override
     protected void doExecute(Task task, Request request, ActionListener<Response> listener) {
         assert request.shardId() != null : "request shardId must be set";
+        // ReroutePhase 在将请求路由到目标节点之前，解析请求的索引和分片 Id。
         new ReroutePhase((ReplicationTask) task, request, listener).run();
     }
 
@@ -617,6 +618,8 @@ public abstract class TransportReplicationAction<
     }
 
     /**
+     * 在将请求路由到目标节点之前，解析请求的索引和分片 Id
+     * <br>
      * Responsible for routing and retrying failed operations on the primary.
      * The actual primary operation is done in {@link ReplicationOperation} on the
      * node with primary copy.
@@ -648,8 +651,11 @@ public abstract class TransportReplicationAction<
         @Override
         protected void doRun() {
             setPhase(task, "routing");
+            // 通过观察者获取集群状态
             final ClusterState state = observer.setAndGetObservedState();
+            // 获取当前索引
             final String concreteIndex = concreteIndex(state, request);
+            // 查看集群是否阻塞
             final ClusterBlockException blockException = blockExceptions(state, concreteIndex);
             if (blockException != null) {
                 if (blockException.retryable()) {
@@ -660,28 +666,35 @@ public abstract class TransportReplicationAction<
                 }
             } else {
                 // request does not have a shardId yet, we need to pass the concrete index to resolve shardId
+                // 获取索引元数据
                 final IndexMetaData indexMetaData = state.metaData().index(concreteIndex);
                 if (indexMetaData == null) {
                     retry(new IndexNotFoundException(concreteIndex));
                     return;
                 }
+                // 索引是否关闭
                 if (indexMetaData.getState() == IndexMetaData.State.CLOSE) {
                     throw new IndexClosedException(indexMetaData.getIndex());
                 }
 
                 // resolve all derived request fields, so we can route and apply it
+                // 设定执行需要存在的分片数
                 resolveRequest(indexMetaData, request);
                 assert request.waitForActiveShards() != ActiveShardCount.DEFAULT :
                     "request waitForActiveShards must be set in resolveRequest";
-
+                // 查看分片的主分片信息
                 final ShardRouting primary = primary(state);
                 if (retryIfUnavailable(state, primary)) {
                     return;
                 }
+                // 获取主分片上所在的节点信息
                 final DiscoveryNode node = state.nodes().get(primary.currentNodeId());
+                // 主分片所在节点是否是当前节点
                 if (primary.currentNodeId().equals(state.nodes().getLocalNodeId())) {
+                    // 本地执行
                     performLocalAction(state, primary, node, indexMetaData);
                 } else {
+                    // 远程调用
                     performRemoteAction(state, primary, node);
                 }
             }

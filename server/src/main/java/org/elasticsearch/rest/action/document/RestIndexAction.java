@@ -40,6 +40,13 @@ import java.util.Locale;
 import static org.elasticsearch.rest.RestRequest.Method.POST;
 import static org.elasticsearch.rest.RestRequest.Method.PUT;
 
+/**
+ * 写入 Document 处理类
+ * <br>
+ * TransportIndexAction < TransportSingleItemBulkWriteAction < TransportAction
+ * <br>
+ * TransportIndexAction 调用 TransportBulkAction 实现批量请求，TransportShardBulkAction 实现分片级批量操作
+ */
 public class RestIndexAction extends BaseRestHandler {
     private static final DeprecationLogger deprecationLogger = new DeprecationLogger(
         LogManager.getLogger(RestDeleteAction.class));
@@ -50,18 +57,22 @@ public class RestIndexAction extends BaseRestHandler {
     private final ClusterService clusterService;
 
     public RestIndexAction(RestController controller, ClusterService clusterService) {
+        // 注入 clusterService
         this.clusterService = clusterService;
 
         AutoIdHandler autoIdHandler = new AutoIdHandler();
+        // _doc 不管 id 存在与否都会创建或更新
         controller.registerHandler(POST, "/{index}/_doc", autoIdHandler); // auto id creation
         controller.registerHandler(PUT, "/{index}/_doc/{id}", this);
         controller.registerHandler(POST, "/{index}/_doc/{id}", this);
 
         CreateHandler createHandler = new CreateHandler();
+        // _create 必须是 id 不存在才会写入成功
         controller.registerHandler(PUT, "/{index}/_create/{id}", createHandler);
         controller.registerHandler(POST, "/{index}/_create/{id}/", createHandler);
 
         // Deprecated typed endpoints.
+        // 弃用的输入，type 7.x 开始弃用
         controller.registerHandler(POST, "/{index}/{type}", autoIdHandler); // auto id creation
         controller.registerHandler(PUT, "/{index}/{type}/{id}", this);
         controller.registerHandler(POST, "/{index}/{type}/{id}", this);
@@ -120,8 +131,12 @@ public class RestIndexAction extends BaseRestHandler {
     @Override
     public RestChannelConsumer prepareRequest(final RestRequest request, final NodeClient client) throws IOException {
         IndexRequest indexRequest;
+        // 获取 type
         final String type = request.param("type");
+
+        // 构建一个 IndexRequest
         if (type != null && type.equals(MapperService.SINGLE_MAPPING_NAME) == false) {
+            // 如果存在 type，提示 8.x 之后正式移除
             deprecationLogger.deprecatedAndMaybeLog("index_with_types", TYPES_DEPRECATION_MESSAGE);
             indexRequest = new IndexRequest(request.param("index"), type, request.param("id"));
         } else {
@@ -145,9 +160,9 @@ public class RestIndexAction extends BaseRestHandler {
         if (sOpType != null) {
             indexRequest.opType(sOpType);
         }
-
+        // 调用 client index 操作 ，由 NodeClient 执行
         return channel ->
-                client.index(indexRequest, new RestStatusToXContentListener<>(channel, r -> r.getLocation(indexRequest.routing())));
+            client.index(indexRequest, new RestStatusToXContentListener<>(channel, r -> r.getLocation(indexRequest.routing())));
     }
 
 }
