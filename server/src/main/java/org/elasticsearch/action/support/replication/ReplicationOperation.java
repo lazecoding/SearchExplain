@@ -47,6 +47,9 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * 复制操作
+ */
 public class ReplicationOperation<
             Request extends ReplicationRequest<Request>,
             ReplicaRequest extends ReplicationRequest<ReplicaRequest>,
@@ -102,9 +105,11 @@ public class ReplicationOperation<
                 "{} Timeout: [{}], request: [{}]", activeShardCountFailure, request.timeout(), request));
             return;
         }
-
         totalShards.incrementAndGet();
         pendingActions.incrementAndGet(); // increase by 1 until we finish all primary coordination
+        // 主分片写入和响应处理，即复制操作到副本分片
+        // perform 处理主分片
+        // 响应处理，即处理副本分片复制 ActionListener.wrap(this::handlePrimaryResult, resultListener::onFailure)
         primary.perform(request, ActionListener.wrap(this::handlePrimaryResult, resultListener::onFailure));
     }
 

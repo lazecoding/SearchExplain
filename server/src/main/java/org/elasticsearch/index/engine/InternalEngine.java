@@ -926,6 +926,7 @@ public class InternalEngine extends Engine {
                     assert index.seqNo() >= 0 : "ops should have an assigned seq no.; origin: " + index.origin();
 
                     if (plan.indexIntoLucene || plan.addStaleOpToLucene) {
+                        // 写入 Lucene
                         indexResult = indexIntoLucene(index, plan);
                     } else {
                         indexResult = new IndexResult(
@@ -1079,12 +1080,15 @@ public class InternalEngine extends Engine {
         index.parsedDoc().version().setLongValue(plan.versionForIndexing);
         try {
             if (plan.addStaleOpToLucene) {
+                // 如果该 Document 已经是过时的了，则首先在 Document 中增加 soft-deleted 标志字段，然后再 IndexWriter.addDocument 进行写入
                 addStaleDocs(index.docs(), indexWriter);
             } else if (plan.useLuceneUpdateDocument) {
+                // 如果该 Document 已经存在则调用 IndexWriter.updateDocument 进行更新
                 assert assertMaxSeqNoOfUpdatesIsAdvanced(index.uid(), index.seqNo(), true, true);
                 updateDocs(index.uid(), index.docs(), indexWriter);
             } else {
                 // document does not exists, we can optimize for create, but double check if assertions are running
+                // Document 不存在，则调用 IndexWriter.addDocument 创建新 Document
                 assert assertDocDoesNotExist(index, canOptimizeAddDocument(index) == false);
                 addDocs(index.docs(), indexWriter);
             }
@@ -1292,6 +1296,7 @@ public class InternalEngine extends Engine {
                 assert delete.seqNo() >= 0 : "ops should have an assigned seq no.; origin: " + delete.origin();
 
                 if (plan.deleteFromLucene || plan.addStaleOpToLucene) {
+                    // 将数据在 Lucene 中删除（其实是标记成删除）
                     deleteResult = deleteInLucene(delete, plan);
                 } else {
                     deleteResult = new DeleteResult(

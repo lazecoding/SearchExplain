@@ -127,6 +127,7 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
         @Override
         public void sendRequest(long requestId, String action, TransportRequest request, TransportRequestOptions options)
             throws TransportException {
+            // 本地请求
             sendLocalRequest(requestId, action, request, options);
         }
 
@@ -176,7 +177,9 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
         setTracerLogExclude(TransportSettings.TRACE_LOG_EXCLUDE_SETTING.get(settings));
         tracerLog = Loggers.getLogger(logger, ".tracer");
         taskManager = createTaskManager(settings, threadPool, taskHeaders);
+        // 设置拦截器
         this.interceptor = transportInterceptor;
+        // 初始化 asyncSender，用于发送命令
         this.asyncSender = interceptor.interceptSender(this::sendRequestInternal);
         this.connectToRemoteCluster = RemoteClusterService.ENABLE_REMOTE_CLUSTERS.get(settings);
         remoteClusterService = new RemoteClusterService(settings, this);
@@ -761,19 +764,23 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
         try {
             onRequestSent(localNode, requestId, action, request, options);
             onRequestReceived(requestId, action);
+            // 获取处理器
             final RequestHandlerRegistry reg = getRequestHandler(action);
             if (reg == null) {
                 throw new ActionNotFoundTransportException("Action [" + action + "] not found");
             }
+            // 获取执行任务名称，如 write
             final String executor = reg.getExecutor();
             if (ThreadPool.Names.SAME.equals(executor)) {
                 //noinspection unchecked
+                // 处理请求
                 reg.processMessageReceived(request, channel);
             } else {
                 threadPool.executor(executor).execute(new AbstractRunnable() {
                     @Override
                     protected void doRun() throws Exception {
                         //noinspection unchecked
+                        // 处理请求
                         reg.processMessageReceived(request, channel);
                     }
 

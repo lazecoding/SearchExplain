@@ -147,9 +147,11 @@ public abstract class TransportReplicationAction<
 
         transportService.registerRequestHandler(actionName, ThreadPool.Names.SAME, requestReader, this::handleOperationRequest);
 
+        // indices:data/write/bulk[s][p]
         transportService.registerRequestHandler(transportPrimaryAction, executor, forceExecutionOnPrimary, true,
             in -> new ConcreteShardRequest<>(requestReader, in), this::handlePrimaryRequest);
 
+        // indices:data/write/bulk[s][r]
         // we must never reject on because of thread pool capacity on replicas
         transportService.registerRequestHandler(transportReplicaAction, executor, true, true,
             in -> new ConcreteReplicaRequest<>(replicaRequestReader, in), this::handleReplicaRequest);
@@ -272,10 +274,14 @@ public abstract class TransportReplicationAction<
     }
 
     protected void handlePrimaryRequest(final ConcreteShardRequest<Request> request, final TransportChannel channel, final Task task) {
+       // 主分片处理任务
         new AsyncPrimaryAction(
             request, new ChannelActionListener<>(channel, transportPrimaryAction, request), (ReplicationTask) task).run();
     }
 
+    /**
+     * 主分片处理惹怒我
+     */
     class AsyncPrimaryAction extends AbstractRunnable {
         private final ActionListener<Response> onCompletionListener;
         private final ReplicationTask replicationTask;
@@ -290,30 +296,37 @@ public abstract class TransportReplicationAction<
 
         @Override
         protected void doRun() throws Exception {
+            // 获取分片 Id
             final ShardId shardId = primaryRequest.getRequest().shardId();
+            // 根据分片 Id 获取分片
             final IndexShard indexShard = getIndexShard(shardId);
+            // 获取分片路由
             final ShardRouting shardRouting = indexShard.routingEntry();
             // we may end up here if the cluster state used to route the primary is so stale that the underlying
             // index shard was replaced with a replica. For example - in a two node cluster, if the primary fails
             // the replica will take over and a replica will be assigned to the first node.
+            // 是否是主分片
             if (shardRouting.primary() == false) {
                 throw new ReplicationOperation.RetryOnPrimaryException(shardId, "actual shard is not a primary " + shardRouting);
             }
+            // allocationId 是否是预期值
             final String actualAllocationId = shardRouting.allocationId().getId();
             if (actualAllocationId.equals(primaryRequest.getTargetAllocationID()) == false) {
                 throw new ShardNotFoundException(shardId, "expected allocation id [{}] but found [{}]",
                     primaryRequest.getTargetAllocationID(), actualAllocationId);
             }
+            // PrimaryTerm 是否是预期值
             final long actualTerm = indexShard.getPendingPrimaryTerm();
             if (actualTerm != primaryRequest.getPrimaryTerm()) {
                 throw new ShardNotFoundException(shardId, "expected allocation id [{}] with term [{}] but found [{}]",
                     primaryRequest.getTargetAllocationID(), primaryRequest.getPrimaryTerm(), actualTerm);
             }
-
+            // 获取主分片操作许可
             acquirePrimaryOperationPermit(
                     indexShard,
                     primaryRequest.getRequest(),
                     ActionListener.wrap(
+                            // 执行主分片操作
                             releasable -> runWithPrimaryShardReference(new PrimaryShardReference(indexShard, releasable)),
                             e -> {
                                 if (e instanceof ShardNotInPrimaryModeException) {
@@ -326,7 +339,9 @@ public abstract class TransportReplicationAction<
 
         void runWithPrimaryShardReference(final PrimaryShardReference primaryShardReference) {
             try {
+                // 获取集群状态
                 final ClusterState clusterState = clusterService.state();
+                // 获取 Index 元数据
                 final IndexMetaData indexMetaData = clusterState.metaData().getIndexSafe(primaryShardReference.routingEntry().index());
 
                 final ClusterBlockException blockException = blockExceptions(clusterState, indexMetaData.getIndex().getName());
@@ -334,9 +349,11 @@ public abstract class TransportReplicationAction<
                     logger.trace("cluster is blocked, action failed on primary", blockException);
                     throw blockException;
                 }
-
+                // 主分片是否迁移
+                // 如果迁移了需要请求转发到新的主分片所在的节点上
                 if (primaryShardReference.isRelocated()) {
                     primaryShardReference.close(); // release shard operation lock as soon as possible
+                    // 设置任务状态为 primary_delegation
                     setPhase(replicationTask, "primary_delegation");
                     // delegate primary phase to relocation target
                     // it is safe to execute primary phase on relocation target as there are no more in-flight operations where primary
@@ -345,6 +362,7 @@ public abstract class TransportReplicationAction<
                     assert primary.relocating() : "indexShard is marked as relocated but routing isn't" + primary;
                     final Writeable.Reader<Response> reader = TransportReplicationAction.this::newResponseInstance;
                     DiscoveryNode relocatingNode = clusterState.nodes().get(primary.relocatingNodeId());
+                    // 转发请求
                     transportService.sendRequest(relocatingNode, transportPrimaryAction,
                         new ConcreteShardRequest<>(primaryRequest.getRequest(), primary.allocationId().getRelocationId(),
                             primaryRequest.getPrimaryTerm()),
@@ -352,17 +370,20 @@ public abstract class TransportReplicationAction<
                         new ActionListenerResponseHandler<Response>(onCompletionListener, reader) {
                             @Override
                             public void handleResponse(Response response) {
+                                // 设置任务状态为 finished
                                 setPhase(replicationTask, "finished");
                                 super.handleResponse(response);
                             }
 
                             @Override
                             public void handleException(TransportException exp) {
+                                // 设置任务状态为 finished
                                 setPhase(replicationTask, "finished");
                                 super.handleException(exp);
                             }
                         });
                 } else {
+                    // 设置任务状态为 primary，标识可以执行主分片操作
                     setPhase(replicationTask, "primary");
 
                     final ActionListener<Response> referenceClosingListener = ActionListener.wrap(response -> {
@@ -390,6 +411,7 @@ public abstract class TransportReplicationAction<
                         referenceClosingListener.onResponse(response);
                     }, referenceClosingListener::onFailure);
 
+                    // 执行复制操作任务
                     new ReplicationOperation<>(primaryRequest.getRequest(), primaryShardReference,
                         ActionListener.wrap(result -> result.respond(globalCheckpointSyncingListener), referenceClosingListener::onFailure),
                         newReplicasProxy(), logger, actionName, primaryRequest.getPrimaryTerm()).execute();
@@ -927,6 +949,7 @@ public abstract class TransportReplicationAction<
                 });
             }
             assert indexShard.getActiveOperationsCount() != 0 : "must perform shard operation under a permit";
+            // 在主分片上执行分片操作
             shardOperationOnPrimary(request, indexShard, listener);
         }
 
