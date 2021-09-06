@@ -113,11 +113,15 @@ public class ReplicationOperation<
         primary.perform(request, ActionListener.wrap(this::handlePrimaryResult, resultListener::onFailure));
     }
 
+    /**
+     * 处理主分片操作响应结构
+     */
     private void handlePrimaryResult(final PrimaryResultT primaryResult) {
         this.primaryResult = primaryResult;
         primary.updateLocalCheckpointForShard(primary.routingEntry().allocationId().getId(), primary.localCheckpoint());
         primary.updateGlobalCheckpointForShard(primary.routingEntry().allocationId().getId(), primary.globalCheckpoint());
         final ReplicaRequest replicaRequest = primaryResult.replicaRequest();
+        // 将请求转发给副分片
         if (replicaRequest != null) {
             if (logger.isTraceEnabled()) {
                 logger.trace("[{}] op [{}] completed on primary for request [{}]", primary.routingEntry().shardId(), opType, request);
@@ -129,17 +133,21 @@ public class ReplicationOperation<
             // is valid for this replication group. If we would sample in the reverse, the global checkpoint might be based on a subset
             // of the sampled replication group, and advanced further than what the given replication group would allow it to.
             // This would entail that some shards could learn about a global checkpoint that would be higher than its local checkpoint.
+            // 获取全局检查点
             final long globalCheckpoint = primary.computedGlobalCheckpoint();
             // we have to capture the max_seq_no_of_updates after this request was completed on the primary to make sure the value of
             // max_seq_no_of_updates on replica when this request is executed is at least the value on the primary when it was executed
             // on.
             final long maxSeqNoOfUpdatesOrDeletes = primary.maxSeqNoOfUpdatesOrDeletes();
             assert maxSeqNoOfUpdatesOrDeletes != SequenceNumbers.UNASSIGNED_SEQ_NO : "seqno_of_updates still uninitialized";
+            // 获取分片组
             final ReplicationGroup replicationGroup = primary.getReplicationGroup();
             markUnavailableShardsAsStale(replicaRequest, replicationGroup);
+            // 执行副本分片写入操作
             performOnReplicas(replicaRequest, globalCheckpoint, maxSeqNoOfUpdatesOrDeletes, replicationGroup);
         }
         successfulShards.incrementAndGet();  // mark primary as successful
+        // 当所有的分片都处理完这个请求后，不管是查询失败还是成功、超时，每执行一次，都会总查询的总分片数减 1，直到所有分片都返回了，再调用 finish() 方法响应客户端
         decPendingAndFinishIfNeeded();
     }
 
@@ -152,6 +160,9 @@ public class ReplicationOperation<
         }
     }
 
+    /**
+     * 执行副本分片写入操作
+     */
     private void performOnReplicas(final ReplicaRequest replicaRequest, final long globalCheckpoint,
                                    final long maxSeqNoOfUpdatesOrDeletes, final ReplicationGroup replicationGroup) {
         // for total stats, add number of unassigned shards and
@@ -161,7 +172,9 @@ public class ReplicationOperation<
         final ShardRouting primaryRouting = primary.routingEntry();
 
         for (final ShardRouting shard : replicationGroup.getReplicationTargets()) {
+            // 不同的 allocation 才执行，相同是当前分片，即主分片（并且过滤掉了未准备好的分片）
             if (shard.isSameAllocation(primaryRouting) == false) {
+                // 执行副本分片写入操作
                 performOnReplica(shard, replicaRequest, globalCheckpoint, maxSeqNoOfUpdatesOrDeletes);
             }
         }
@@ -175,6 +188,7 @@ public class ReplicationOperation<
 
         totalShards.incrementAndGet();
         pendingActions.incrementAndGet();
+        // 执行副本分片写入操作
         replicasProxy.performOn(shard, replicaRequest, primaryTerm, globalCheckpoint, maxSeqNoOfUpdatesOrDeletes,
             new ActionListener<ReplicaResponse>() {
                 @Override
@@ -264,6 +278,9 @@ public class ReplicationOperation<
         }
     }
 
+    /**
+     * 当所有的分片都处理完这个请求后，不管是查询失败还是成功、超时，每执行一次，都会总查询的总分片数减 1，直到所有分片都返回了，再调用 finish() 方法响应客户端
+     */
     private void decPendingAndFinishIfNeeded() {
         assert pendingActions.get() > 0 : "pending action count goes below 0 for request [" + request + "]";
         if (pendingActions.decrementAndGet() == 0) {
@@ -387,6 +404,8 @@ public class ReplicationOperation<
     public interface Replicas<RequestT extends ReplicationRequest<RequestT>> {
 
         /**
+         * 对指定的副本执行指定的请求。
+         * <br>
          * Performs the specified request on the specified replica.
          *
          * @param replica                    the shard this request should be executed on

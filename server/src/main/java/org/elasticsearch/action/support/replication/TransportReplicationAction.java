@@ -563,7 +563,9 @@ public abstract class TransportReplicationAction<
                             transportReplicaAction,
                             replicaRequest.getRequest()),
                     e);
+                // 重试
                 replicaRequest.getRequest().onRetry();
+                // 观察者等待状态变化
                 observer.waitForNextChange(new ClusterStateObserver.Listener() {
                     @Override
                     public void onNewClusterState(ClusterState state) {
@@ -602,6 +604,7 @@ public abstract class TransportReplicationAction<
                 throw new ShardNotFoundException(this.replica.shardId(), "expected allocation id [{}] but found [{}]",
                     replicaRequest.getTargetAllocationID(), actualAllocationId);
             }
+            // 副本分片写入请求
             acquireReplicaOperationPermit(replica, replicaRequest.getRequest(), this, replicaRequest.getPrimaryTerm(),
                 replicaRequest.getGlobalCheckpoint(), replicaRequest.getMaxSeqNoOfUpdatesOrDeletes());
         }
@@ -894,6 +897,8 @@ public abstract class TransportReplicationAction<
     }
 
     /**
+     * 执行用于在复制分片上获取一个或多个操作许可的逻辑。
+     * <br>
      * Executes the logic for acquiring one or more operation permit on a replica shard. The default is to acquire a single permit but this
      * method can be overridden to acquire more.
      */
@@ -1058,6 +1063,7 @@ public abstract class TransportReplicationAction<
                 final long globalCheckpoint,
                 final long maxSeqNoOfUpdatesOrDeletes,
                 final ActionListener<ReplicationOperation.ReplicaResponse> listener) {
+            // 获取副本分片所在节点 Id
             String nodeId = replica.currentNodeId();
             final DiscoveryNode node = clusterService.state().nodes().get(nodeId);
             if (node == null) {
@@ -1068,6 +1074,7 @@ public abstract class TransportReplicationAction<
                 request, replica.allocationId().getId(), primaryTerm, globalCheckpoint, maxSeqNoOfUpdatesOrDeletes);
             final ActionListenerResponseHandler<ReplicaResponse> handler = new ActionListenerResponseHandler<>(listener,
                 ReplicaResponse::new);
+            // 发送副本分片复制操作请求
             transportService.sendRequest(node, transportReplicaAction, replicaRequest, transportOptions, handler);
         }
 
