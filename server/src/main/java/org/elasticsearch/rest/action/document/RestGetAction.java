@@ -52,6 +52,7 @@ public class RestGetAction extends BaseRestHandler {
         controller.registerHandler(HEAD, "/{index}/_doc/{id}", this);
 
         // Deprecated typed endpoints.
+        // 弃用的输入，type 7.x 开始弃用
         controller.registerHandler(GET, "/{index}/{type}/{id}", this);
         controller.registerHandler(HEAD, "/{index}/{type}/{id}", this);
     }
@@ -64,7 +65,9 @@ public class RestGetAction extends BaseRestHandler {
     @Override
     public RestChannelConsumer prepareRequest(final RestRequest request, final NodeClient client) throws IOException {
         GetRequest getRequest;
+        // 构造 GetRequest
         if (request.hasParam("type")) {
+            // 兼容处理 {type}
             deprecationLogger.deprecatedAndMaybeLog("get_with_types", TYPES_DEPRECATION_MESSAGE);
             getRequest = new GetRequest(request.param("index"), request.param("type"), request.param("id"));
         } else {
@@ -91,7 +94,7 @@ public class RestGetAction extends BaseRestHandler {
         getRequest.versionType(VersionType.fromString(request.param("version_type"), getRequest.versionType()));
 
         getRequest.fetchSourceContext(FetchSourceContext.parseFromRestRequest(request));
-
+        // 调用 client get 操作 ，由 NodeClient 执行
         return channel -> client.get(getRequest, new RestToXContentListener<GetResponse>(channel) {
             @Override
             protected RestStatus getStatus(final GetResponse response) {

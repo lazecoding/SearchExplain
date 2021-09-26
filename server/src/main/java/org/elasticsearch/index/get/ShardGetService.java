@@ -158,6 +158,7 @@ public final class ShardGetService extends AbstractIndexShardComponent {
     private GetResult innerGet(String type, String id, String[] gFields, boolean realtime, long version, VersionType versionType,
                                long ifSeqNo, long ifPrimaryTerm, FetchSourceContext fetchSourceContext, boolean readFromTranslog) {
         fetchSourceContext = normalizeFetchSourceContent(fetchSourceContext, gFields);
+        // 处理 _all 选项
         if (type == null || type.equals("_all")) {
             DocumentMapper mapper = mapperService.documentMapper();
             type = mapper == null ? null : mapper.type();
@@ -166,6 +167,7 @@ public final class ShardGetService extends AbstractIndexShardComponent {
         Engine.GetResult get = null;
         if (type != null) {
             Term uidTerm = new Term(IdFieldMapper.NAME, Uid.encodeId(id));
+            // 调用 Engine 执行 get 操作读取并返回数据
             get = indexShard.get(new Engine.Get(realtime, readFromTranslog, type, id, uidTerm)
                     .version(version).versionType(versionType).setIfSeqNo(ifSeqNo).setIfPrimaryTerm(ifPrimaryTerm));
             if (get.exists() == false) {
@@ -179,6 +181,7 @@ public final class ShardGetService extends AbstractIndexShardComponent {
 
         try {
             // break between having loaded it from translog (so we only have _source), and having a document to load
+            // 过滤返回结果，返回用户需要的字段或属性
             return innerGetLoadFromStoredFields(type, id, gFields, fetchSourceContext, get, mapperService);
         } finally {
             get.close();
@@ -194,6 +197,7 @@ public final class ShardGetService extends AbstractIndexShardComponent {
         FieldsVisitor fieldVisitor = buildFieldsVisitors(gFields, fetchSourceContext);
         if (fieldVisitor != null) {
             try {
+                // 调用 lucene 读取文档，构建 fieldVisitor
                 docIdAndVersion.reader.document(docIdAndVersion.docId, fieldVisitor);
             } catch (IOException e) {
                 throw new ElasticsearchException("Failed to get type [" + type + "] and id [" + id + "]", e);
@@ -206,7 +210,7 @@ public final class ShardGetService extends AbstractIndexShardComponent {
                 metaDataFields = new HashMap<>();
                 for (Map.Entry<String, List<Object>> entry : fieldVisitor.fields().entrySet()) {
                     if (MapperService.isMetadataField(entry.getKey())) {
-                        metaDataFields.put(entry.getKey(), new DocumentField(entry.getKey(), entry.getValue()));                        
+                        metaDataFields.put(entry.getKey(), new DocumentField(entry.getKey(), entry.getValue()));
                     } else {
                         documentFields.put(entry.getKey(), new DocumentField(entry.getKey(), entry.getValue()));
                     }
@@ -215,7 +219,7 @@ public final class ShardGetService extends AbstractIndexShardComponent {
         }
 
         DocumentMapper docMapper = mapperService.documentMapper();
-
+        // 过滤内容
         if (gFields != null && gFields.length > 0) {
             for (String field : gFields) {
                 Mapper fieldMapper = docMapper.mappers().getMapper(field);
@@ -244,7 +248,7 @@ public final class ShardGetService extends AbstractIndexShardComponent {
                 throw new ElasticsearchException("Failed to get type [" + type + "] and id [" + id + "] with includes/excludes set", e);
             }
         }
-
+        // 构建 GetResult
         return new GetResult(shardId.getIndexName(), type, id, get.docIdAndVersion().seqNo, get.docIdAndVersion().primaryTerm,
             get.version(), get.exists(), source, documentFields, metaDataFields);
     }

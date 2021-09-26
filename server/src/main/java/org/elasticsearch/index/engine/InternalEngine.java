@@ -648,9 +648,11 @@ public class InternalEngine extends Engine {
     @Override
     public GetResult get(Get get, BiFunction<String, SearcherScope, Engine.Searcher> searcherFactory) throws EngineException {
         assert Objects.equals(get.uid().field(), IdFieldMapper.NAME) : get.uid().field();
+        // 加锁
         try (ReleasableLock ignored = readLock.acquire()) {
             ensureOpen();
             SearcherScope scope;
+            // 是否需要实时数据
             if (get.realtime()) {
                 VersionValue versionValue = null;
                 try (Releasable ignore = versionMap.acquireLock(get.uid().bytes())) {
@@ -671,6 +673,9 @@ public class InternalEngine extends Engine {
                         throw new VersionConflictEngineException(shardId, get.id(),
                             get.getIfSeqNo(), get.getIfPrimaryTerm(), versionValue.seqNo, versionValue.term);
                     }
+                    // 是否读取 translog
+                    // 如果读取 translog，就不需要 refresh 了，提前 return 了。
+                    // 但从注释看 this is only used for updates，这只作用于 update 操作，在 5.x 版本已经移除，get 操作都是通过 refresh 来得到实时数据
                     if (get.isReadFromTranslog()) {
                         // this is only used for updates - API _GET calls will always read form a reader for consistency
                         // the update call doesn't need the consistency since it's source only + _parent but parent can go away in 7.0
@@ -704,6 +709,7 @@ public class InternalEngine extends Engine {
             }
 
             // no version, get the version from the index, we know that we refresh on flush
+            // 获取 Searcher 用于读取数据
             return getFromSearcher(get, searcherFactory, scope);
         }
     }

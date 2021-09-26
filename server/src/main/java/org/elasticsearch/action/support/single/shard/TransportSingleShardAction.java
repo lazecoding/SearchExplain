@@ -55,6 +55,8 @@ import java.io.IOException;
 import static org.elasticsearch.action.support.TransportActions.isShardNotAvailableException;
 
 /**
+ * TransportSingleShardAction 用来处理分片上的请求，AsyncSingleAction 是 TransportSingleShardAction 的内部类。
+ * <br>
  * A base class for operations that need to perform a read operation on a single shard copy. If the operation fails,
  * the read operation can be performed on other shard copies. Concrete implementations can provide their own list
  * of candidate shards to try the read operation on.
@@ -143,11 +145,12 @@ public abstract class TransportSingleShardAction<Request extends SingleShardRequ
 
         private AsyncSingleAction(Request request, ActionListener<Response> listener) {
             this.listener = listener;
-
+            // 获取集群状态
             ClusterState clusterState = clusterService.state();
             if (logger.isTraceEnabled()) {
                 logger.trace("executing [{}] based on cluster state version [{}]", request, clusterState.version());
             }
+            // 集群 node 列表
             nodes = clusterState.nodes();
             ClusterBlockException blockException = checkGlobalBlock(clusterState);
             if (blockException != null) {
@@ -167,7 +170,7 @@ public abstract class TransportSingleShardAction<Request extends SingleShardRequ
             if (blockException != null) {
                 throw blockException;
             }
-
+            // 根据路由算法计算得到目的 shard 迭代器，或者根据优先级选择目标节点
             this.shardIt = shards(clusterState, internalRequest);
         }
 
@@ -280,12 +283,13 @@ public abstract class TransportSingleShardAction<Request extends SingleShardRequ
     }
 
     private class ShardTransportHandler implements TransportRequestHandler<Request> {
-
+        // 处理接收到的请求
         @Override
         public void messageReceived(final Request request, final TransportChannel channel, Task task) throws Exception {
             if (logger.isTraceEnabled()) {
                 logger.trace("executing [{}] on shard [{}]", request, request.internalShardId);
             }
+            // asyncShardOperation 会调用 `TransportGetAction#shardOperation`，顾名思义这个方法负责分片操作
             asyncShardOperation(request, request.internalShardId, new ChannelActionListener<>(channel, transportShardAction, request));
         }
     }
