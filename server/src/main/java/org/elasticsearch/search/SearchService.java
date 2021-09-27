@@ -324,19 +324,27 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
     }
 
     /**
+     * 尝试从缓存加载查询结果.如果无法使用缓存则直接执行查询阶段 ———— 得到 DocId 信息，放入 context 中
+     * <br>
      * Try to load the query results from the cache or execute the query phase directly if the cache cannot be used.
      */
     private void loadOrExecuteQueryPhase(final ShardSearchRequest request, final SearchContext context) throws Exception {
         final boolean canCache = indicesService.canCache(request, context);
         context.getQueryShardContext().freezeContext();
         if (canCache) {
+            // 读取缓存
             indicesService.loadIntoContext(request, context, queryPhase);
         } else {
+            // 执行 query
             queryPhase.execute(context);
         }
     }
 
+    /**
+     * 处理 query 阶段，主要是重写请求，调用另一个 executeQueryPhase 方法
+     */
     public void executeQueryPhase(ShardSearchRequest request, SearchTask task, ActionListener<SearchPhaseResult> listener) {
+        // 调用 executeQueryPhase(ShardSearchRequest request, SearchTask task) 方法
         rewriteShardRequest(request, ActionListener.map(listener, r -> executeQueryPhase(r, task)));
     }
 
@@ -344,6 +352,9 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
         getExecutor(id).execute(ActionRunnable.supply(listener, executable::get));
     }
 
+    /**
+     * 处理 query 阶段
+     */
     private SearchPhaseResult executeQueryPhase(ShardSearchRequest request, SearchTask task) throws Exception {
         final SearchContext context = createAndPutContext(request);
         context.incRef();
@@ -352,6 +363,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
             final long afterQueryTime;
             try (SearchOperationListenerExecutor executor = new SearchOperationListenerExecutor(context)) {
                 contextProcessing(context);
+                // 尝试从缓存加载查询结果.如果无法使用缓存则直接执行查询阶段 ———— 得到 DocId 信息，放入 context 中
                 loadOrExecuteQueryPhase(request, context);
                 if (context.queryResult().hasSearchContext() == false && context.scrollContext() == null) {
                     freeContext(context.id());
@@ -363,6 +375,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
             if (request.numberOfShards() == 1) {
                 return executeFetchPhase(context, afterQueryTime);
             }
+            // 返回 query 结果
             return context.queryResult();
         } catch (Exception e) {
             // execution exception can happen while loading the cache, strip it

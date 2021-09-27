@@ -81,6 +81,7 @@ public class RestSearchAction extends BaseRestHandler {
         controller.registerHandler(POST, "/{index}/_search", this);
 
         // Deprecated typed endpoints.
+        // 启用 type
         controller.registerHandler(GET, "/{index}/{type}/_search", this);
         controller.registerHandler(POST, "/{index}/{type}/_search", this);
     }
@@ -108,7 +109,8 @@ public class RestSearchAction extends BaseRestHandler {
         IntConsumer setSize = size -> searchRequest.source().size(size);
         request.withContentOrSourceParamParserOrNull(parser ->
             parseSearchRequest(searchRequest, request, parser, setSize));
-
+        // 对应的 TransportAction 实现类是 TransportSearchAction
+        // 调用 TransportSearchAction#doExecute
         return channel -> {
             RestStatusToXContentListener<SearchResponse> listener = new RestStatusToXContentListener<>(channel);
             HttpChannelTaskHandler.INSTANCE.execute(client, request.getHttpChannel(), searchRequest, SearchAction.INSTANCE, listener);

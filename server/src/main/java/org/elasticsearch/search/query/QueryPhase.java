@@ -94,6 +94,7 @@ public class QueryPhase implements SearchPhase {
     @Override
     public void execute(SearchContext searchContext) throws QueryPhaseExecutionException {
         if (searchContext.hasOnlySuggest()) {
+            // 如果至少用作 suggest，直接执行 query，返回一个 TOP N 列表
             suggestPhase.execute(searchContext);
             searchContext.queryResult().topDocs(new TopDocsAndMaxScore(
                     new TopDocs(new TotalHits(0, TotalHits.Relation.EQUAL_TO), Lucene.EMPTY_SCORE_DOCS), Float.NaN),
@@ -110,6 +111,7 @@ public class QueryPhase implements SearchPhase {
         // here to make sure it happens during the QUERY phase
         aggregationPhase.preProcess(searchContext);
         final ContextIndexSearcher searcher = searchContext.searcher();
+        // 执行真正的 query
         boolean rescore = execute(searchContext, searchContext.searcher(), searcher::setCheckCancelled);
 
         if (rescore) { // only if we do a regular search
@@ -126,6 +128,8 @@ public class QueryPhase implements SearchPhase {
     }
 
     /**
+     * 执行真正的 query
+     * <br>
      * In a package-private method so that it can be tested without having to
      * wire everything (mapperService, etc.)
      * @return whether the rescoring phase should be executed
@@ -137,6 +141,7 @@ public class QueryPhase implements SearchPhase {
         QuerySearchResult queryResult = searchContext.queryResult();
         queryResult.searchTimedOut(false);
         try {
+            // 设置偏移量，依此构建 TOP N 列表
             queryResult.from(searchContext.from());
             queryResult.size(searchContext.size());
             Query query = searchContext.query();
@@ -267,6 +272,7 @@ public class QueryPhase implements SearchPhase {
             }
 
             try {
+                // 调用lucene接口，执行真正的查询
                 searcher.search(query, queryCollector);
             } catch (EarlyTerminatingCollector.EarlyTerminationException e) {
                 queryResult.terminatedEarly(true);

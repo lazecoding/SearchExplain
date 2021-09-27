@@ -133,6 +133,7 @@ public class SearchTransportService {
         Writeable.Reader<SearchPhaseResult> reader = fetchDocuments ? QueryFetchSearchResult::new : QuerySearchResult::new;
 
         final ActionListener handler = responseWrapper.apply(connection, listener);
+        // 发送 QUERY_ACTION_NAME ，对应的处理器 是  SearchService#executeQueryPhase
         transportService.sendChildRequest(connection, QUERY_ACTION_NAME, request, task,
                 new ConnectionCountingHandler<>(handler, reader, clientConnections, connection.getNode().getId()));
     }
@@ -305,6 +306,7 @@ public class SearchTransportService {
         TransportActionProxy.registerProxyAction(transportService, CLEAR_SCROLL_CONTEXTS_ACTION_NAME,
             (in) -> TransportResponse.Empty.INSTANCE);
 
+        // 注册 dfs 阶段处理器
         transportService.registerRequestHandler(DFS_ACTION_NAME, ThreadPool.Names.SAME, ShardSearchRequest::new,
             (request, channel, task) -> {
                 searchService.executeDfsPhase(request, (SearchTask) task, new ActionListener<SearchPhaseResult>() {
@@ -329,6 +331,7 @@ public class SearchTransportService {
             });
         TransportActionProxy.registerProxyAction(transportService, DFS_ACTION_NAME, DfsSearchResult::new);
 
+        // 注册 query 阶段处理器
         transportService.registerRequestHandler(QUERY_ACTION_NAME, ThreadPool.Names.SAME, ShardSearchRequest::new,
             (request, channel, task) -> {
                 searchService.executeQueryPhase(request, (SearchTask) task, new ChannelActionListener<>(
@@ -365,6 +368,7 @@ public class SearchTransportService {
             });
         TransportActionProxy.registerProxyAction(transportService, FETCH_ID_SCROLL_ACTION_NAME, FetchSearchResult::new);
 
+        // 注册 fetch 阶段处理器
         transportService.registerRequestHandler(FETCH_ID_ACTION_NAME, ThreadPool.Names.SAME, true, true, ShardFetchSearchRequest::new,
             (request, channel, task) -> {
                 searchService.executeFetchPhase(request, (SearchTask)task, new ChannelActionListener<>(channel, FETCH_ID_ACTION_NAME,

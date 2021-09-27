@@ -147,6 +147,8 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
     }
 
     /**
+     * 这是搜索的主要入口点。这个方法开始初始阶段的搜索。
+     * <br>
      * This is the main entry point for a search. This method starts the search execution of the initial phase.
      */
     public final void start() {
@@ -162,6 +164,7 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
                 ShardSearchFailure.EMPTY_ARRAY, clusters));
             return;
         }
+        // 这里传入的是 this，里面调用的 run 就是 this.run
         executePhase(this);
     }
 
@@ -192,9 +195,11 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
                     throw new SearchPhaseExecutionException(getName(), msg, null, ShardSearchFailure.EMPTY_ARRAY);
                 }
             }
+            // 遍历分片迭代器，以分片为单位执行 performPhaseOnShard，这意味着即使是相同节点的两个分片的请求也不会合并
             for (int index = 0; index < shardsIts.size(); index++) {
                 final SearchShardIterator shardRoutings = shardsIts.get(index);
                 assert shardRoutings.skip() == false;
+                // 执行以分片为单位的搜索阶段
                 performPhaseOnShard(index, shardRoutings, shardRoutings.nextOrNull());
             }
         }
@@ -207,6 +212,9 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
         successfulShardExecution(iterator);
     }
 
+    /**
+     * 执行以分片为单位的搜索阶段
+     */
     private void performPhaseOnShard(final int shardIndex, final SearchShardIterator shardIt, final ShardRouting shard) {
         /*
          * We capture the thread that this phase is starting on. When we are called back after executing the phase, we are either on the
@@ -224,11 +232,19 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
             Runnable r = () -> {
                 final Thread thread = Thread.currentThread();
                 try {
+                    // 重点！！！
+                    // 执行请求，并设置 listener 处理响应
+                    //  1. 协调节点发送 query 请求
+                    //  2. 数据节点通过对应的处理器处理接收到的 query 请求；对应的处理器方法为  SearchService#executeQueryPhase
+                    //  3. listener 进行响应处理
+                    //      4. onShardResult 合并请求，并结束当前阶段
+                    //      5. executeNext 进入下一个阶段，即 fetch
                     executePhaseOnShard(shardIt, shard,
                         new SearchActionListener<Result>(shardIt.newSearchShardTarget(shard.currentNodeId()), shardIndex) {
                             @Override
                             public void innerOnResponse(Result result) {
                                 try {
+                                    // 合并请求，并结束当前阶段
                                     onShardResult(result, shardIt);
                                 } finally {
                                     executeNext(pendingExecutions, thread);
@@ -447,6 +463,8 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
     }
 
     /**
+     * 对于每个成功的碎片级请求执行一次。
+     * <br>
      * Executed once for every successful shard level request.
      * @param result the result returned form the shard
      * @param shardIt the shard iterator
@@ -455,6 +473,7 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
         assert result.getShardIndex() != -1 : "shard index is not set";
         assert result.getSearchShardTarget() != null : "search shard target must not be null";
         successfulOps.incrementAndGet();
+        // 合并请求
         results.consumeResult(result);
         if (logger.isTraceEnabled()) {
             logger.trace("got first-phase result from {}", result != null ? result.getSearchShardTarget() : null);
@@ -471,6 +490,8 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
         // cause the successor to read a wrong value from successfulOps if second phase is very fast ie. count etc.
         // increment all the "future" shards to update the total ops since we some may work and some may not...
         // and when that happens, we break on total ops, so we must maintain them
+        // 检查是否所有请求都已收到回复，是否进入下一阶段
+        // 调用 onPhaseDone(); 完成该阶段
         successfulShardExecution(shardIt);
     }
 
@@ -483,6 +504,7 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
         }
         final int xTotalOps = totalOps.addAndGet(remainingOpsOnIterator);
         if (xTotalOps == expectedTotalOps) {
+            // 该阶段完成，进入下一个阶段
             onPhaseDone();
         } else if (xTotalOps > expectedTotalOps) {
             throw new AssertionError("unexpected higher total ops [" + xTotalOps + "] compared to expected ["
