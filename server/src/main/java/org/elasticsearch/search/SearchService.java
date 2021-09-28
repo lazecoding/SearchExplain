@@ -512,6 +512,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
                 }
                 context.docIdsToLoad(request.docIds(), 0, request.docIdsSize());
                 try (SearchOperationListenerExecutor executor = new SearchOperationListenerExecutor(context, true, System.nanoTime())) {
+                    // 执行 fetch
                     fetchPhase.execute(context);
                     if (fetchPhaseShouldFreeContext(context)) {
                         freeContext(request.id());

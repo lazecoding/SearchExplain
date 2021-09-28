@@ -245,6 +245,7 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
                             public void innerOnResponse(Result result) {
                                 try {
                                     // 合并请求，并结束当前阶段
+                                    // successfulShardExecution > onPhaseDone > executeNextPhase ： 调用 FetchSearchPhase#run
                                     onShardResult(result, shardIt);
                                 } finally {
                                     executeNext(pendingExecutions, thread);

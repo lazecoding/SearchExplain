@@ -98,7 +98,7 @@ public class FetchPhase implements SearchPhase {
         final FieldsVisitor fieldsVisitor;
         Map<String, Set<String>> storedToRequestedFields = new HashMap<>();
         StoredFieldsContext storedFieldsContext = context.storedFieldsContext();
-
+        // 创建 FieldsVisitor
         if (storedFieldsContext == null) {
             // no fields specified, default to return source if no explicit indication
             if (!context.hasScriptFields() && !context.hasFetchSourceContext()) {
@@ -145,6 +145,7 @@ public class FetchPhase implements SearchPhase {
         try {
             SearchHit[] hits = new SearchHit[context.docIdsToLoadSize()];
             FetchSubPhase.HitContext hitContext = new FetchSubPhase.HitContext();
+            // 遍历 Doc Id
             for (int index = 0; index < context.docIdsToLoadSize(); index++) {
                 if (context.isCancelled()) {
                     throw new TaskCancelledException("cancelled");
@@ -156,6 +157,7 @@ public class FetchPhase implements SearchPhase {
 
                 final SearchHit searchHit;
                 int rootDocId = findRootDocumentIfNested(context, subReaderContext, subDocId);
+                // 获取 SearchHit, 这里包含读取 Doc
                 if (rootDocId != -1) {
                     searchHit = createNestedSearchHit(context, docId, subDocId, rootDocId,
                         storedToRequestedFields, subReaderContext);
@@ -211,10 +213,10 @@ public class FetchPhase implements SearchPhase {
         if (fieldsVisitor == null) {
             return new SearchHit(docId, null, typeText, null);
         }
-
+        // 读取 Doc,构建 fieldsVisitor 等字段
         Map<String, DocumentField> searchFields = getSearchFields(context, fieldsVisitor, subDocId,
             storedToRequestedFields, subReaderContext);
-
+        // 实例化 SearchHit
         SearchHit searchHit = new SearchHit(docId, fieldsVisitor.uid().id(), typeText, searchFields);
         // Set _source if requested.
         SourceLookup sourceLookup = context.lookup().source();
@@ -230,6 +232,7 @@ public class FetchPhase implements SearchPhase {
                                                        int subDocId,
                                                        Map<String, Set<String>> storedToRequestedFields,
                                                        LeafReaderContext subReaderContext) {
+        // 读取 Doc
         loadStoredFields(context.shardTarget(), subReaderContext, fieldsVisitor, subDocId);
         fieldsVisitor.postProcess(context.mapperService());
 
@@ -423,6 +426,7 @@ public class FetchPhase implements SearchPhase {
     private void loadStoredFields(SearchShardTarget shardTarget, LeafReaderContext readerContext, FieldsVisitor fieldVisitor, int docId) {
         fieldVisitor.reset();
         try {
+            // 调用 lucene document 读取 Doc
             readerContext.reader().document(docId, fieldVisitor);
         } catch (IOException e) {
             throw new FetchPhaseExecutionException(shardTarget, "Failed to fetch doc id [" + docId + "]", e);

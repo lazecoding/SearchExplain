@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.function.BiFunction;
 
 /**
+ * 此搜索阶段将前一阶段的查询结果合并在一起，并计算此搜索的 TOP N 命中数。然后它会接触到所有相关的分片来获取 TOP N 的点击。
+ * <br>
  * This search phase merges the query results from the previous phase together and calculates the topN hits for this search.
  * Then it reaches out to all relevant shards to fetch the topN hits.
  */
@@ -98,8 +100,10 @@ final class FetchSearchPhase extends SearchPhase {
         final boolean isScrollSearch = context.getRequest().scroll() != null;
         List<SearchPhaseResult> phaseResults = queryResults.asList();
         String scrollId = isScrollSearch ? TransportSearchHelper.buildScrollId(queryResults) : null;
+        // reduce 做全局排序，调用 SearchPhaseController#sortDocs
         final SearchPhaseController.ReducedQueryPhase reducedQueryPhase = resultConsumer.reduce();
         final boolean queryAndFetchOptimization = queryResults.length() == 1;
+        // finish 时候执行的任务 ： moveToNextPhase
         final Runnable finishPhase = ()
             -> moveToNextPhase(searchPhaseController, scrollId, reducedQueryPhase, queryAndFetchOptimization ?
             queryResults : fetchResults);
@@ -110,6 +114,7 @@ final class FetchSearchPhase extends SearchPhase {
             finishPhase.run();
         } else {
             ScoreDoc[] scoreDocs = reducedQueryPhase.sortedTopDocs.scoreDocs;
+            // 获取排序后的 Doc Id
             final IntArrayList[] docIdsToLoad = searchPhaseController.fillDocIdsToLoad(numShards, scoreDocs);
             if (scoreDocs.length == 0) { // no docs to fetch -- sidestep everything and return
                 phaseResults.stream()
@@ -120,9 +125,11 @@ final class FetchSearchPhase extends SearchPhase {
                 final ScoreDoc[] lastEmittedDocPerShard = isScrollSearch ?
                     searchPhaseController.getLastEmittedDocPerShard(reducedQueryPhase, numShards)
                     : null;
+                // 实例化 CountedCollector
                 final CountedCollector<FetchSearchResult> counter = new CountedCollector<>(r -> fetchResults.set(r.getShardIndex(), r),
                     docIdsToLoad.length, // we count down every shard in the result no matter if we got any results or not
                     finishPhase, context);
+                // 逐个遍历文档 fetch
                 for (int i = 0; i < docIdsToLoad.length; i++) {
                     IntArrayList entry = docIdsToLoad[i];
                     SearchPhaseResult queryResult = queryResults.get(i);
@@ -141,6 +148,7 @@ final class FetchSearchPhase extends SearchPhase {
                             searchShardTarget.getNodeId());
                         ShardFetchSearchRequest fetchSearchRequest = createFetchRequest(queryResult.queryResult().getRequestId(), i, entry,
                             lastEmittedDocPerShard, searchShardTarget.getOriginalIndices());
+                        // 执行 fetch
                         executeFetch(i, searchShardTarget, counter, fetchSearchRequest, queryResult.queryResult(),
                             connection);
                     }
@@ -155,10 +163,14 @@ final class FetchSearchPhase extends SearchPhase {
         return new ShardFetchSearchRequest(originalIndices, queryId, entry, lastEmittedDoc);
     }
 
+    /**
+     * 执行 fetch
+     */
     private void executeFetch(final int shardIndex, final SearchShardTarget shardTarget,
                               final CountedCollector<FetchSearchResult> counter,
                               final ShardFetchSearchRequest fetchSearchRequest, final QuerySearchResult querySearchResult,
                               final Transport.Connection connection) {
+        // 发起 fetch 请求， FETCH_ID_ACTION_NAME ，对应的处理器是 SearchService#executeFetchPhase
         context.getSearchTransport().sendExecuteFetch(connection, fetchSearchRequest, context.getTask(),
             new SearchActionListener<FetchSearchResult>(shardTarget, shardIndex) {
                 @Override
