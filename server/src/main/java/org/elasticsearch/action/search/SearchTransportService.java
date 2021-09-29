@@ -133,7 +133,7 @@ public class SearchTransportService {
         Writeable.Reader<SearchPhaseResult> reader = fetchDocuments ? QueryFetchSearchResult::new : QuerySearchResult::new;
 
         final ActionListener handler = responseWrapper.apply(connection, listener);
-        // 发送 QUERY_ACTION_NAME ，对应的处理器 是  SearchService#executeQueryPhase
+        // 发送 QUERY_ACTION_NAME ，对应的处理器 是 SearchService#executeQueryPhase
         transportService.sendChildRequest(connection, QUERY_ACTION_NAME, request, task,
                 new ConnectionCountingHandler<>(handler, reader, clientConnections, connection.getNode().getId()));
     }

@@ -272,7 +272,7 @@ public class QueryPhase implements SearchPhase {
             }
 
             try {
-                // 调用lucene接口，执行真正的查询
+                // 调用 lucene 接口，执行真正的查询
                 searcher.search(query, queryCollector);
             } catch (EarlyTerminatingCollector.EarlyTerminationException e) {
                 queryResult.terminatedEarly(true);

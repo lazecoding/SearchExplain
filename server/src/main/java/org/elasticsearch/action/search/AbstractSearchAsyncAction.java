@@ -237,8 +237,7 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
                     //  1. 协调节点发送 query 请求
                     //  2. 数据节点通过对应的处理器处理接收到的 query 请求；对应的处理器方法为  SearchService#executeQueryPhase
                     //  3. listener 进行响应处理
-                    //      4. onShardResult 合并请求，并结束当前阶段
-                    //      5. executeNext 进入下一个阶段，即 fetch
+                    //      4. onShardResult 合并请求，并结束当前阶段，进入下一个阶段，即 fetch
                     executePhaseOnShard(shardIt, shard,
                         new SearchActionListener<Result>(shardIt.newSearchShardTarget(shard.currentNodeId()), shardIndex) {
                             @Override
