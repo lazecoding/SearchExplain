@@ -70,6 +70,9 @@ import java.util.stream.Collectors;
 
 import static org.elasticsearch.common.util.concurrent.EsExecutors.daemonThreadFactory;
 
+/**
+ * MasterService 类负责集群任务管理、执行等工作，它内部维护一个线程池执行任务，并对外提供了提交任务的接口。
+ */
 public class MasterService extends AbstractLifecycleComponent {
     private static final Logger logger = LogManager.getLogger(MasterService.class);
 
@@ -89,7 +92,14 @@ public class MasterService extends AbstractLifecycleComponent {
 
     protected final ThreadPool threadPool;
 
+    /**
+     * 执行任务的线程池，本质使用优先级队列作为工作队列的线程池执行器。
+     */
     private volatile PrioritizedEsThreadPoolExecutor threadPoolExecutor;
+
+    /**
+     * Batcher 内部类负责管理和执行任务，继承自 TaskBatcher 类并继承了父类的 submitTasks 方法用于提交任务并交给线程池执行
+     */
     private volatile Batcher taskBatcher;
 
     public MasterService(Settings settings, ClusterSettings clusterSettings, ThreadPool threadPool) {
@@ -129,6 +139,9 @@ public class MasterService extends AbstractLifecycleComponent {
                 threadPool.scheduler());
     }
 
+    /**
+     * Batcher 内部类负责管理和执行任务，继承自 TaskBatcher 类并继承了父类的 submitTasks 方法用于提交任务并交给线程池执行
+     */
     @SuppressWarnings("unchecked")
     class Batcher extends TaskBatcher {
 
@@ -356,6 +369,8 @@ public class MasterService extends AbstractLifecycleComponent {
     }
 
     /**
+     * 提交集群状态更新任务
+     * <br>
      * Submits a cluster state update task; unlike {@link #submitStateUpdateTask(String, Object, ClusterStateTaskConfig,
      * ClusterStateTaskExecutor, ClusterStateTaskListener)}, submitted updates will not be batched.
      *
@@ -371,6 +386,8 @@ public class MasterService extends AbstractLifecycleComponent {
     }
 
     /**
+     * 提交集群状态更新任务
+     * <br>
      * Submits a cluster state update task; submitted updates will be
      * batched across the same instance of executor. The exact batching
      * semantics depend on the underlying implementation but a rough
@@ -464,6 +481,8 @@ public class MasterService extends AbstractLifecycleComponent {
     }
 
     /**
+     * 获取待执行的任务数量
+     * <br>
      * Returns the tasks that are pending.
      */
     public List<PendingClusterTask> pendingTasks() {
@@ -477,6 +496,8 @@ public class MasterService extends AbstractLifecycleComponent {
     }
 
     /**
+     * 获取待执行的任务数量
+     * <br>
      * Returns the number of currently pending tasks.
      */
     public int numberOfPendingTasks() {
@@ -773,6 +794,8 @@ public class MasterService extends AbstractLifecycleComponent {
     }
 
     /**
+     * 提交集群状态更新任务
+     * <br>
      * Submits a batch of cluster state update tasks; submitted updates are guaranteed to be processed together,
      * potentially with more tasks of the same executor.
      *

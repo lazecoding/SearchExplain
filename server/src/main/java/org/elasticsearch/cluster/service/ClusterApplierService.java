@@ -71,7 +71,8 @@ import java.util.stream.Stream;
 import static org.elasticsearch.common.util.concurrent.EsExecutors.daemonThreadFactory;
 
 /**
- * 集群填充服务
+ * ClusterApplierService 类负责管理集群状态，以及通知各个 Applier 应用集群状态。
+ * 主节点和从节点都会应用集群状态，如果某个模块需要处理集群状态，则调用 addStateApplier 方法添加一个处理器；如果想监听集群状态的变化，则通过 addListener 添加一个监听器。
  */
 public class ClusterApplierService extends AbstractLifecycleComponent implements ClusterApplier {
     private static final Logger logger = LogManager.getLogger(ClusterApplierService.class);
@@ -202,6 +203,8 @@ public class ClusterApplierService extends AbstractLifecycleComponent implements
     }
 
     /**
+     * 获取集群状态
+     * <br>
      * The current cluster state.
      * Should be renamed to appliedClusterState
      */
@@ -227,6 +230,8 @@ public class ClusterApplierService extends AbstractLifecycleComponent implements
     }
 
     /**
+     * 添加一个集群状态处理器
+     * <br>
      * Adds a applier of updated cluster states.
      */
     public void addStateApplier(ClusterStateApplier applier) {
@@ -234,6 +239,8 @@ public class ClusterApplierService extends AbstractLifecycleComponent implements
     }
 
     /**
+     * 删除一个集群状态处理器
+     * <br>
      * Removes an applier of updated cluster states.
      */
     public void removeApplier(ClusterStateApplier applier) {
@@ -243,6 +250,8 @@ public class ClusterApplierService extends AbstractLifecycleComponent implements
     }
 
     /**
+     * 添加一个集群状态监听器
+     * <br>
      * Add a listener for updated cluster states
      */
     public void addListener(ClusterStateListener listener) {
@@ -250,6 +259,8 @@ public class ClusterApplierService extends AbstractLifecycleComponent implements
     }
 
     /**
+     * 删除一个集群状态监听器
+     * <br>
      * Removes a listener for updated cluster states.
      */
     public void removeListener(ClusterStateListener listener) {
@@ -330,6 +341,9 @@ public class ClusterApplierService extends AbstractLifecycleComponent implements
         return threadPool;
     }
 
+    /**
+     * 收到新的集群状态
+     */
     @Override
     public void onNewClusterState(final String source, final Supplier<ClusterState> clusterStateSupplier,
                                   final ClusterApplyListener listener) {

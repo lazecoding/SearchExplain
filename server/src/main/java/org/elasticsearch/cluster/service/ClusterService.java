@@ -41,6 +41,9 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.util.Collections;
 import java.util.Map;
 
+/**
+ * 集群管理的封装，它内部注入了 MasterService 和 ClusterApplierService 完成集群管理。
+ */
 public class ClusterService extends AbstractLifecycleComponent {
     private final MasterService masterService;
 
