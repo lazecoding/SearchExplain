@@ -794,13 +794,13 @@ public class MasterService extends AbstractLifecycleComponent {
     }
 
     /**
-     * 提交集群状态更新任务
+     * 批量提交集群状态更新任务
      * <br>
      * Submits a batch of cluster state update tasks; submitted updates are guaranteed to be processed together,
      * potentially with more tasks of the same executor.
      *
-     * @param source   the source of the cluster state update task
-     * @param tasks    a map of update tasks and their corresponding listeners
+     * @param source   the source of the cluster state update task, 一段任务描述
+     * @param tasks    a map of update tasks and their corresponding listeners，要提交的具体的任务
      * @param config   the cluster state update task configuration
      * @param executor the cluster state update task executor; tasks
      *                 that share the same executor will be executed
@@ -818,7 +818,7 @@ public class MasterService extends AbstractLifecycleComponent {
         final Supplier<ThreadContext.StoredContext> supplier = threadContext.newRestorableContext(true);
         try (ThreadContext.StoredContext ignore = threadContext.stashContext()) {
             threadContext.markAsSystemContext();
-            // 对 IndexCreationTask 做安全校验并转变为 UpdateTask，UpdateTask 是个包含优先级的任务，是 PrioritizedRunnable 的子类
+            // 对 XXXTask 做安全校验并转变为 UpdateTask，UpdateTask 是个包含优先级的任务，是 PrioritizedRunnable 的子类
             List<Batcher.UpdateTask> safeTasks = tasks.entrySet().stream()
                 .map(e -> taskBatcher.new UpdateTask(config.priority(), source, e.getKey(), safe(e.getValue(), supplier), executor))
                 .collect(Collectors.toList());

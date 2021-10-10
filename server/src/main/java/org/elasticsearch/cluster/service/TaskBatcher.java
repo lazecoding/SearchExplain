@@ -58,9 +58,12 @@ public abstract class TaskBatcher {
             return;
         }
         final BatchedTask firstTask = tasks.get(0);
+        // 如果一次提交多个任务，则必须有相同的 batchingKey，这些任务将被批量执行
         assert tasks.stream().allMatch(t -> t.batchingKey == firstTask.batchingKey) :
             "tasks submitted in a batch should share the same batching key: " + tasks;
         // convert to an identity map to check for dups based on task identity
+        // 转化为 Map，key 为 task 对象，例如 ClusterStateUpdateTask
+        // 如果提交的任务列表存在重复则抛出异常
         final Map<Object, BatchedTask> tasksIdentity = tasks.stream().collect(Collectors.toMap(
             BatchedTask::getTask,
             Function.identity(),
@@ -68,19 +71,25 @@ public abstract class TaskBatcher {
             IdentityHashMap::new));
 
         synchronized (tasksPerBatchingKey) {
+            // 如果不存在 batchingKey ,则添加进去，如果存在则不操作
+            // 并获取对应的 value
             LinkedHashSet<BatchedTask> existingTasks = tasksPerBatchingKey.computeIfAbsent(firstTask.batchingKey,
                 k -> new LinkedHashSet<>(tasks.size()));
             for (BatchedTask existing : existingTasks) {
                 // check that there won't be two tasks with the same identity for the same batching key
+                // 检查对于同一个批任务，不可两个具有相同 identity 的任务
                 BatchedTask duplicateTask = tasksIdentity.get(existing.getTask());
                 if (duplicateTask != null) {
                     throw new IllegalStateException("task [" + duplicateTask.describeTasks(
                         Collections.singletonList(existing)) + "] with source [" + duplicateTask.source + "] is already queued");
                 }
             }
+            // 如果没异常，就添加新任务
             existingTasks.addAll(tasks);
         }
-        // 执行任务
+        // 将任务放入线程池中执行
+        // 虽然这里只将任务列表的第一个任务交个线程池执行，但是任务列表的全部任务被添加到 tasksPerBatchingKey 中，线程池执行任务时，
+        // 根据任务的 batchingKey 从 tasksPerBatchingKey 中获取任务列表，然后批量执行这个任务列表。
         if (timeout != null) {
             threadExecutor.execute(firstTask, timeout, () -> onTimeoutInternal(tasks, timeout));
         } else {
