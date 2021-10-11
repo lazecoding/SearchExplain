@@ -100,7 +100,7 @@ public class PublicationTransportHandler {
         this.namedWriteableRegistry = namedWriteableRegistry;
         this.handlePublishRequest = handlePublishRequest;
 
-        // 注册请求处理器
+        // 注册请求处理器 发布请求
         // PUBLISH_STATE_ACTION_NAME：internal:cluster/coordination/publish_state
         // TransportRequestHandler#messageReceived 的实现： (request, channel, task) -> channel.sendResponse(handleIncomingPublishRequest(request))
         // handleIncomingPublishRequest，处理传入的请求
@@ -113,6 +113,7 @@ public class PublicationTransportHandler {
                 channel.sendResponse(TransportResponse.Empty.INSTANCE);
             });
 
+        // 注册请求处理器 提交请求
         transportService.registerRequestHandler(COMMIT_STATE_ACTION_NAME, ThreadPool.Names.GENERIC, false, false,
             ApplyCommitRequest::new,
             (request, channel, task) -> handleApplyCommit.accept(request, transportCommitCallback(channel)));

@@ -61,6 +61,8 @@ import java.util.stream.Collectors;
 import static org.elasticsearch.node.Node.NODE_NAME_SETTING;
 
 /**
+ * 用于加载 节点发现相关类 的模块。
+ * <br>
  * A module for loading classes for node discovery.
  */
 public class DiscoveryModule {
@@ -148,6 +150,7 @@ public class DiscoveryModule {
             throw new IllegalArgumentException("Unknown election strategy " + ELECTION_STRATEGY_SETTING.get(settings));
         }
 
+        // Coordinator 和 ZenDiscovery
         if (ZEN2_DISCOVERY_TYPE.equals(discoveryType) || SINGLE_NODE_DISCOVERY_TYPE.equals(discoveryType)) {
             discovery = new Coordinator(NODE_NAME_SETTING.get(settings),
                 settings, clusterSettings,

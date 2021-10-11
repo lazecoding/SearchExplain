@@ -138,6 +138,7 @@ public abstract class TaskBatcher {
             final Map<String, List<BatchedTask>> processTasksBySource = new HashMap<>();
             // 同步处理批处理键（同步锁），将需要执行的任务放到 toExecute 中
             synchronized (tasksPerBatchingKey) {
+                // 根据 batchingKey 获取任务列表
                 LinkedHashSet<BatchedTask> pending = tasksPerBatchingKey.remove(updateTask.batchingKey);
                 if (pending != null) {
                     for (BatchedTask task : pending) {

@@ -278,6 +278,7 @@ public abstract class Publication {
             assert state == PublicationTargetState.WAITING_FOR_QUORUM : state + " -> " + PublicationTargetState.SENT_APPLY_COMMIT;
             state = PublicationTargetState.SENT_APPLY_COMMIT;
             assert applyCommitRequest.isPresent();
+            // 发起提交请求，并设置响应处理器 》 COMMIT_STATE_ACTION_NAME = "internal:cluster/coordination/commit_state";
             Publication.this.sendApplyCommit(discoveryNode, applyCommitRequest.get(), new ApplyCommitResponseHandler());
             assert publicationCompletedIffAllTargetsInactiveOrCancelled();
         }

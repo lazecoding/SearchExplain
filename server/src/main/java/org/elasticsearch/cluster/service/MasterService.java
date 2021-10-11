@@ -213,6 +213,9 @@ public class MasterService extends AbstractLifecycleComponent {
         return true;
     }
 
+    /**
+     * 执行任务并发布集群状态
+     */
     private void runTasks(TaskInputs taskInputs) {
         final String summary = taskInputs.summary;
         if (!lifecycle.started()) {
@@ -230,11 +233,13 @@ public class MasterService extends AbstractLifecycleComponent {
         }
 
         final long computationStartTime = threadPool.relativeTimeInMillis();
+        // 执行任务并构建 TaskOutputs
         final TaskOutputs taskOutputs = calculateTaskOutputs(taskInputs, previousClusterState);
         taskOutputs.notifyFailedTasks();
         final TimeValue computationTime = getTimeSince(computationStartTime);
         logExecutionTime(computationTime, "compute cluster state update", summary);
 
+        // 根据 TaskOutputs 判断任务执行前后集群状态是否发生变化
         if (taskOutputs.clusterStateUnchanged()) {
             final long notificationStartTime = threadPool.relativeTimeInMillis();
             taskOutputs.notifySuccessfulTasksOnUnchangedClusterState();
@@ -262,7 +267,7 @@ public class MasterService extends AbstractLifecycleComponent {
                 }
 
                 logger.debug("publishing cluster state version [{}]", newClusterState.version());
-                // 发布集群状态更新事件
+                // 通过 ClusterStatePublisher 发布集群状态更新事件
                 publish(clusterChangedEvent, taskOutputs, publicationStartTime);
             } catch (Exception e) {
                 handleException(summary, publicationStartTime, newClusterState, e);
@@ -338,6 +343,7 @@ public class MasterService extends AbstractLifecycleComponent {
     }
 
     private TaskOutputs calculateTaskOutputs(TaskInputs taskInputs, ClusterState previousClusterState) {
+        // 执行任务
         ClusterTasksResult<Object> clusterTasksResult = executeTasks(taskInputs, previousClusterState);
         ClusterState newClusterState = patchVersions(previousClusterState, clusterTasksResult);
         return new TaskOutputs(taskInputs, previousClusterState, newClusterState, getNonFailedTasks(taskInputs, clusterTasksResult),
